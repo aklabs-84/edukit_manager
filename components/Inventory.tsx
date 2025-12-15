@@ -160,8 +160,74 @@ const Inventory: React.FC = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Mobile cards */}
+      <div className="block md:hidden space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center text-gray-500">재고 불러오는 중...</div>
+        ) : filteredItems.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center text-gray-500">검색 결과가 없습니다.</div>
+        ) : (
+          filteredItems.map((item) => (
+            <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm text-gray-500">교구명</div>
+                  <div className="text-base font-semibold text-gray-900">{item.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{item.school}</div>
+                </div>
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
+                  ${item.status === ItemStatus.IN_STOCK ? 'bg-green-50 text-green-700 border-green-200' :
+                    item.status === ItemStatus.LOW_STOCK ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    'bg-red-50 text-red-700 border-red-200'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    item.status === ItemStatus.IN_STOCK ? 'bg-green-500' :
+                    item.status === ItemStatus.LOW_STOCK ? 'bg-amber-500' : 'bg-red-500'
+                  }`}></span>
+                  {item.status}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {item.category.split(',').map((cat) => (
+                  <span key={cat} className="bg-indigo-50 text-indigo-700 py-1 px-2 rounded text-xs font-medium">
+                    {cat.trim()}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                <div>
+                  <div className="text-xs text-gray-500">위치</div>
+                  <div>{item.location}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">수량</div>
+                  <div className="font-mono text-gray-900">{item.quantity}</div>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600">
+                <span className="text-xs text-gray-500">기타 사항</span><br />
+                {item.notes || '-'}
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                <button 
+                  onClick={() => handleOpenEdit(item)}
+                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteClick(item)}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-gray-900 font-semibold uppercase text-xs tracking-wider border-b border-gray-200">
@@ -179,11 +245,11 @@ const Inventory: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">재고 불러오는 중...</td>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">재고 불러오는 중...</td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td>
                 </tr>
               ) : (
                 filteredItems.map((item) => (
@@ -225,7 +291,7 @@ const Inventory: React.FC = () => {
                           <Edit2 size={16} />
                         </button>
                         <button 
-                          onClick={() => handleDeleteClick(item.id)}
+                          onClick={() => handleDeleteClick(item)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         >
                           <Trash2 size={16} />
