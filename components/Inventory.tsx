@@ -19,7 +19,8 @@ const Inventory: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [imageBase64, setImageBase64] = useState<string>('');
-  
+  const MAX_IMAGE_BASE64 = 1_200_000; // ~1.2MB
+
   // Filter logic
   const filteredItems = useMemo(() => {
     return items.filter(item => 
@@ -464,8 +465,20 @@ const Inventory: React.FC = () => {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) {
+                        alert('이미지 용량이 2MB를 초과합니다. 더 작은 파일을 선택해주세요.');
+                        e.target.value = '';
+                        return;
+                      }
                       try {
                         const resized = await resizeImage(file, 800, 800);
+                        if (resized.length > MAX_IMAGE_BASE64) {
+                          alert('이미지 용량이 큽니다. 해상도를 더 줄이거나 다른 이미지를 선택해주세요.');
+                          setImagePreview('');
+                          setImageBase64('');
+                          e.target.value = '';
+                          return;
+                        }
                         setImagePreview(resized);
                         setImageBase64(resized);
                       } catch (err) {
