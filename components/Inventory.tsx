@@ -19,6 +19,7 @@ const Inventory: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [imageBase64, setImageBase64] = useState<string>('');
+  const [selectedFileName, setSelectedFileName] = useState<string>('선택된 파일 없음');
   const MAX_IMAGE_BASE64 = 1_200_000; // ~1.2MB
 
   // Filter logic
@@ -57,6 +58,7 @@ const Inventory: React.FC = () => {
     setSelectedCategories([]);
     setImagePreview('');
     setImageBase64('');
+    setSelectedFileName('선택된 파일 없음');
     setIsModalOpen(true);
   };
 
@@ -66,6 +68,7 @@ const Inventory: React.FC = () => {
     setSelectedCategories(item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : []);
     setImagePreview(item.imageUrl || '');
     setImageBase64('');
+    setSelectedFileName(item.imageUrl ? extractFileName(item.imageUrl) : '선택된 파일 없음');
     setIsModalOpen(true);
   };
 
@@ -134,6 +137,15 @@ const Inventory: React.FC = () => {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  const extractFileName = (url: string): string => {
+    try {
+      const parts = url.split('/').filter(Boolean);
+      return decodeURIComponent(parts[parts.length - 1]) || url;
+    } catch {
+      return url;
+    }
   };
 
   return (
@@ -216,8 +228,17 @@ const Inventory: React.FC = () => {
                   <div className="text-base font-semibold text-gray-900">{item.name}</div>
                   <div className="text-xs text-gray-500 mt-1">{item.school}</div>
                 </div>
-                {item.imageUrl && (
-                  <img src={item.imageUrl} alt={item.name} className="w-16 h-16 rounded-lg object-cover border" loading="lazy" />
+                {item.imageUrl ? (
+                  <a
+                    href={item.imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 underline"
+                  >
+                    이미지 보기
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-400">이미지 없음</span>
                 )}
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
                   ${item.status === ItemStatus.IN_STOCK ? 'bg-green-50 text-green-700 border-green-200' :
@@ -303,7 +324,14 @@ const Inventory: React.FC = () => {
                     <td className="px-6 py-4 text-gray-700">{item.school}</td>
                     <td className="px-6 py-4">
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-14 h-14 object-cover rounded-lg border" loading="lazy" />
+                        <a
+                          href={item.imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-3 py-1 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+                        >
+                          이미지 보기
+                        </a>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
                       )}
@@ -476,18 +504,26 @@ const Inventory: React.FC = () => {
                           alert('이미지 용량이 큽니다. 해상도를 더 줄이거나 다른 이미지를 선택해주세요.');
                           setImagePreview('');
                           setImageBase64('');
+                          setSelectedFileName('선택된 파일 없음');
                           e.target.value = '';
                           return;
                         }
                         setImagePreview(resized);
                         setImageBase64(resized);
+                        setSelectedFileName(file.name);
                       } catch (err) {
                         alert('이미지 처리에 실패했습니다. 다른 파일을 시도해주세요.');
                       }
                     }}
                   />
+                  <span className="text-sm text-gray-500">{selectedFileName}</span>
                   {imagePreview && (
-                    <img src={imagePreview} alt="미리보기" className="w-16 h-16 rounded-lg object-cover border" />
+                    <img
+                      src={imagePreview}
+                      alt="미리보기"
+                      className="w-16 h-16 rounded-lg object-cover border"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
                   )}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">카메라 촬영 또는 갤러리에서 선택해 업로드할 수 있습니다.</p>
