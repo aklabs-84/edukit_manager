@@ -11,6 +11,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
     school: '대건고',
     notes: '기본 키트 포함',
+    imageUrl: '',
   },
   {
     id: '2',

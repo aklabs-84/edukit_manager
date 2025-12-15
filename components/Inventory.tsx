@@ -17,6 +17,8 @@ const Inventory: React.FC = () => {
   const [itemToDelete, setItemToDelete] = useState<{ id: string; school: string } | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageBase64, setImageBase64] = useState<string>('');
   
   // Filter logic
   const filteredItems = useMemo(() => {
@@ -49,8 +51,11 @@ const Inventory: React.FC = () => {
       status: ItemStatus.IN_STOCK,
       school: selectedSchool === '모두' ? '대건고' : selectedSchool,
       notes: '',
+      imageUrl: '',
     });
     setSelectedCategories([]);
+    setImagePreview('');
+    setImageBase64('');
     setIsModalOpen(true);
   };
 
@@ -58,6 +63,8 @@ const Inventory: React.FC = () => {
     setEditingItem(item);
     setFormData({ ...item });
     setSelectedCategories(item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : []);
+    setImagePreview(item.imageUrl || '');
+    setImageBase64('');
     setIsModalOpen(true);
   };
 
@@ -66,13 +73,14 @@ const Inventory: React.FC = () => {
     if (!formData.name || selectedCategories.length === 0) return;
 
     const categoryValue = selectedCategories.join(', ');
+    const payload = { ...formData, category: categoryValue, imageBase64 } as InventoryItem;
 
     try {
       setIsSaving(true);
       if (editingItem) {
-        await updateItem({ ...editingItem, ...formData, category: categoryValue } as InventoryItem);
+        await updateItem({ ...editingItem, ...payload });
       } else {
-        await addItem({ ...formData, category: categoryValue } as InventoryItem);
+        await addItem(payload);
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -93,6 +101,38 @@ const Inventory: React.FC = () => {
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
     }
+  };
+
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas not supported'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(compressed);
+        };
+        img.onerror = reject;
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   return (
@@ -175,6 +215,9 @@ const Inventory: React.FC = () => {
                   <div className="text-base font-semibold text-gray-900">{item.name}</div>
                   <div className="text-xs text-gray-500 mt-1">{item.school}</div>
                 </div>
+                {item.imageUrl && (
+                  <img src={item.imageUrl} alt={item.name} className="w-16 h-16 rounded-lg object-cover border" loading="lazy" />
+                )}
                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
                   ${item.status === ItemStatus.IN_STOCK ? 'bg-green-50 text-green-700 border-green-200' :
                     item.status === ItemStatus.LOW_STOCK ? 'bg-amber-50 text-amber-700 border-amber-200' :
@@ -234,6 +277,7 @@ const Inventory: React.FC = () => {
               <tr>
                 <th className="px-6 py-4">교구명</th>
                 <th className="px-6 py-4">학교</th>
+                <th className="px-6 py-4">이미지</th>
                 <th className="px-6 py-4">카테고리</th>
                 <th className="px-6 py-4">위치</th>
                 <th className="px-6 py-4">기타 사항</th>
@@ -243,11 +287,11 @@ const Inventory: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">재고 불러오는 중...</td>
-                </tr>
-              ) : filteredItems.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">재고 불러오는 중...</td>
+                  </tr>
+                ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-gray-500">검색 결과가 없습니다.</td>
                 </tr>
@@ -256,6 +300,13 @@ const Inventory: React.FC = () => {
                   <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{item.name}</td>
                     <td className="px-6 py-4 text-gray-700">{item.school}</td>
+                    <td className="px-6 py-4">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-14 h-14 object-cover rounded-lg border" loading="lazy" />
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {item.category.split(',').map((cat) => (
@@ -402,6 +453,31 @@ const Inventory: React.FC = () => {
                   />
                   <p className="text-xs text-gray-400 mt-1">수량에 따라 상태는 자동 계산됩니다.</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이미지 업로드</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const resized = await resizeImage(file, 800, 800);
+                        setImagePreview(resized);
+                        setImageBase64(resized);
+                      } catch (err) {
+                        alert('이미지 처리에 실패했습니다. 다른 파일을 시도해주세요.');
+                      }
+                    }}
+                  />
+                  {imagePreview && (
+                    <img src={imagePreview} alt="미리보기" className="w-16 h-16 rounded-lg object-cover border" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-1">카메라 촬영 또는 갤러리에서 선택해 업로드할 수 있습니다.</p>
               </div>
               
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">

@@ -3,6 +3,7 @@ import { MOCK_INVENTORY } from './mockData';
 
 // Helper to simulate network delay for mock mode (kept minimal for faster UX)
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const MAX_IMAGE_BASE64_SIZE = 1_200_000; // ~1.2MB
 
 const DEFAULT_SCHOOL = '대건고';
 const demoKey = (school: string) => `demo_items_${school}`;
@@ -87,9 +88,10 @@ export const apiService = {
     }
 
     // Real API Call (POST request mimicking a procedure call)
+    const payload = { action: 'create', data: pruneImagePayload(newItem) };
     const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ action: 'create', data: newItem }),
+      body: JSON.stringify(payload),
     });
     const result: ApiResponse = await response.json();
     if (!result.success) throw new Error(result.message);
@@ -108,9 +110,10 @@ export const apiService = {
       return updatedItem;
     }
 
+    const payload = { action: 'update', data: pruneImagePayload(updatedItem) };
     const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ action: 'update', data: updatedItem }),
+      body: JSON.stringify(payload),
     });
     const result: ApiResponse = await response.json();
     if (!result.success) throw new Error(result.message);
@@ -136,3 +139,14 @@ export const apiService = {
     return true;
   }
 };
+
+// Remove huge base64 payload to keep request lighter
+function pruneImagePayload(item: InventoryItem): InventoryItem {
+  if (item.imageBase64 && item.imageBase64.length > MAX_IMAGE_BASE64_SIZE) {
+    console.warn('이미지 용량이 커서 전송하지 않습니다. 압축 후 다시 시도하세요.');
+    const clone = { ...item };
+    delete clone.imageBase64;
+    return clone;
+  }
+  return item;
+}

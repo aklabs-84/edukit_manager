@@ -14,6 +14,8 @@ export interface InventoryItem {
   lastUpdated: string;
   school: string;
   notes?: string;
+  imageUrl?: string;
+  imageBase64?: string; // 업로드용 임시 필드
 }
 
 export interface AppState {
