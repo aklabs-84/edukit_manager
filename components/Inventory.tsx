@@ -2,9 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { InventoryItem, ItemStatus } from '../types';
 import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw } from 'lucide-react';
-
-const SCHOOL_OPTIONS = ['모두', '대건고', '신송고', '중산중', '신현중', '이음초'];
-const CATEGORY_OPTIONS = ['마이크로보드', '로봇', '드론', '키트', '단품', '3D펜', '센서', '기타'];
+import { SCHOOL_OPTIONS, CATEGORY_OPTIONS } from '../constants';
 
 const Inventory: React.FC = () => {
   const { items, isLoading, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, setSelectedSchool, refreshItems } = useAppContext();

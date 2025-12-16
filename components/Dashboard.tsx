@@ -3,8 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { CheckCircle, PackageSearch, Clock, RefreshCw } from 'lucide-react';
 import { ItemStatus } from '../types';
-
-const SCHOOL_OPTIONS = ['모두', '대건고', '신송고', '중산중', '신현중', '이음초'];
+import { SCHOOL_OPTIONS } from '../constants';
 
 const Dashboard: React.FC = () => {
   const { allItems, isLoading, refreshItems, isDemoMode, selectedSchool, setSelectedSchool } = useAppContext();

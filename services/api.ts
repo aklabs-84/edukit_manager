@@ -1,31 +1,35 @@
 import { InventoryItem, ApiResponse } from '../types';
 import { MOCK_INVENTORY } from './mockData';
+import { SCHOOLS, DEFAULT_SCHOOL, ALL_SCHOOLS_KEY } from '../constants';
 
 // Helper to simulate network delay for mock mode (kept minimal for faster UX)
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_IMAGE_BASE64_SIZE = 1_200_000; // ~1.2MB
 
-const DEFAULT_SCHOOL = '대건고';
 const demoKey = (school: string) => `demo_items_${school}`;
-const ALL_KEY = '모두';
 
 export const apiService = {
   fetchItems: async (url: string, isDemo: boolean, school: string = DEFAULT_SCHOOL): Promise<InventoryItem[]> => {
     if (isDemo || !url) {
-      await delay(150);
-      if (school === ALL_KEY) {
-        // gather all demo items across schools
+      await delay(80); // 150 → 80ms로 단축
+
+      if (school === ALL_SCHOOLS_KEY) {
+        // 개선: 직접 학교 키로 접근 (전체 localStorage 순회 제거)
         const items: InventoryItem[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i) || '';
-          if (key.startsWith('demo_items_')) {
-            const data = localStorage.getItem(key);
-            if (data) items.push(...JSON.parse(data));
+        for (const sch of SCHOOLS) {
+          const data = localStorage.getItem(demoKey(sch));
+          if (data) {
+            try {
+              items.push(...JSON.parse(data));
+            } catch {
+              // 파싱 실패 시 무시
+            }
           }
         }
         if (items.length > 0) return items;
         return MOCK_INVENTORY.map(item => ({ ...item }));
       }
+
       const stored = localStorage.getItem(demoKey(school));
       return stored ? JSON.parse(stored) : MOCK_INVENTORY.map(item => ({ ...item, school }));
     }
@@ -38,16 +42,15 @@ export const apiService = {
     };
 
     try {
-      if (school === ALL_KEY) {
+      if (school === ALL_SCHOOLS_KEY) {
         // 1차: 백엔드에서 모두 지원하면 한 번에 사용
         try {
-          const all = await fetchBySchool(ALL_KEY);
+          const all = await fetchBySchool(ALL_SCHOOLS_KEY);
           if (all.length > 0) return all;
-        } catch (e) {
+        } catch {
           // 무시하고 fallback 시도
         }
         // 2차: 학교별 병합 fallback (병렬 처리)
-        const SCHOOLS = ['대건고', '신송고', '중산중', '신현중', '이음초', 'DefaultSchool'];
         const allResults = await Promise.all(
           SCHOOLS.map(async (sch) => {
             try {
@@ -80,8 +83,11 @@ export const apiService = {
     };
 
     if (isDemo || !url) {
-      await delay(120);
-      const currentItems = await apiService.fetchItems(url, true, targetSchool);
+      await delay(50); // 120 → 50ms로 단축
+
+      // 개선: 직접 localStorage에서 읽고 추가 (fetchItems 호출 제거)
+      const stored = localStorage.getItem(demoKey(targetSchool));
+      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
       const updated = [newItem, ...currentItems];
       localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return newItem;
@@ -95,7 +101,7 @@ export const apiService = {
     });
     const result: ApiResponse = await response.json();
     if (!result.success) throw new Error(result.message);
-    return newItem; 
+    return newItem;
   },
 
   updateItem: async (url: string, isDemo: boolean, item: InventoryItem, school?: string): Promise<InventoryItem> => {
@@ -103,8 +109,11 @@ export const apiService = {
     const updatedItem = { ...item, lastUpdated: new Date().toISOString(), school: targetSchool };
 
     if (isDemo || !url) {
-      await delay(120);
-      const currentItems = await apiService.fetchItems(url, true, targetSchool);
+      await delay(50); // 120 → 50ms로 단축
+
+      // 개선: 직접 localStorage에서 읽고 수정 (fetchItems 호출 제거)
+      const stored = localStorage.getItem(demoKey(targetSchool));
+      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
       const updated = currentItems.map(i => i.id === item.id ? updatedItem : i);
       localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return updatedItem;
@@ -122,9 +131,13 @@ export const apiService = {
 
   deleteItem: async (url: string, isDemo: boolean, id: string, school?: string): Promise<boolean> => {
     const targetSchool = school || DEFAULT_SCHOOL;
+
     if (isDemo || !url) {
-      await delay(120);
-      const currentItems = await apiService.fetchItems(url, true, targetSchool);
+      await delay(50); // 120 → 50ms로 단축
+
+      // 개선: 직접 localStorage에서 읽고 삭제 (fetchItems 호출 제거)
+      const stored = localStorage.getItem(demoKey(targetSchool));
+      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
       const updated = currentItems.filter(i => i.id !== id);
       localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return true;
