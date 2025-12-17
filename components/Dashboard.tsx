@@ -6,7 +6,7 @@ import { CheckCircle, PackageSearch, Clock, RefreshCw } from 'lucide-react';
 import { ItemStatus } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { allItems, items, isLoading, refreshItems, isDemoMode, selectedSchool } = useAppContext();
+  const { allItems, items, isLoading, isInitialized, refreshItems, isDemoMode, selectedSchool } = useAppContext();
   const { currentSchool, isAdmin } = useAuth();
 
   // 학교 사용자는 자기 학교 데이터만, 관리자는 필터링된 데이터
@@ -53,6 +53,20 @@ const Dashboard: React.FC = () => {
   );
 
   const displaySchoolName = currentSchool?.name || selectedSchool;
+
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 bg-white/70 backdrop-blur rounded-2xl px-6 py-8 shadow-sm border border-gray-100">
+          <RefreshCw size={28} className="animate-spin text-indigo-600" />
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-800">데이터 불러오는 중</p>
+            <p className="text-sm text-gray-500">최신 데이터를 가져오고 있습니다...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

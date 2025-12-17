@@ -37,6 +37,7 @@ export interface AppState {
   items: InventoryItem[];
   allItems: InventoryItem[];
   isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
   gasUrl: string;
   isDemoMode: boolean;

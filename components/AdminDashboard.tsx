@@ -16,6 +16,7 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Link2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { adminApiService } from '../services/adminApi';
@@ -23,7 +24,7 @@ import { SchoolConfig } from '../types';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { logout, adminGasUrl, isAdmin } = useAuth();
+  const { logout, adminGasUrl, isAdmin, setAdminGasUrl } = useAuth();
 
   const [schools, setSchools] = useState<SchoolConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,6 +34,11 @@ const AdminDashboard: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSchool, setEditingSchool] = useState<SchoolConfig | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  // 관리자 URL 설정
+  const [showUrlSetting, setShowUrlSetting] = useState(false);
+  const [tempAdminUrl, setTempAdminUrl] = useState(adminGasUrl);
+  const [urlSaved, setUrlSaved] = useState(false);
 
   // 폼 상태
   const [formName, setFormName] = useState('');
@@ -73,7 +79,7 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     loadSchools();
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, adminGasUrl]);
 
   // 코드 복사
   const handleCopyCode = async (code: string) => {
@@ -201,11 +207,18 @@ const AdminDashboard: React.FC = () => {
     navigate('/');
   };
 
+  const handleSaveAdminUrl = () => {
+    setAdminGasUrl(tempAdminUrl.trim());
+    setUrlSaved(true);
+    setTimeout(() => setUrlSaved(false), 2000);
+    setShowUrlSetting(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between relative">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
               <Settings className="text-white" size={20} />
@@ -217,13 +230,56 @@ const AdminDashboard: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <LogOut size={18} />
-            <span className="hidden sm:inline">로그아웃</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setTempAdminUrl(adminGasUrl);
+                setShowUrlSetting(!showUrlSetting);
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="관리자 API URL 설정"
+            >
+              <Link2 size={18} />
+              <span className="hidden sm:inline">API URL</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <LogOut size={18} />
+              <span className="hidden sm:inline">로그아웃</span>
+            </button>
+          </div>
+
+          {showUrlSetting && (
+            <div className="absolute right-4 top-16 bg-white rounded-xl shadow-lg border border-gray-200 p-4 w-80 z-20">
+              <h3 className="font-semibold text-gray-900 mb-2">관리자 API URL 설정</h3>
+              <input
+                type="url"
+                value={tempAdminUrl}
+                onChange={(e) => setTempAdminUrl(e.target.value)}
+                placeholder="https://script.google.com/..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveAdminUrl}
+                  className="flex-1 px-3 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={() => setShowUrlSetting(false)}
+                  className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
+                >
+                  취소
+                </button>
+              </div>
+              {urlSaved && (
+                <p className="text-xs text-green-600 mt-2">저장되었습니다.</p>
+              )}
+            </div>
+          )}
         </div>
       </header>
 

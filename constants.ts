@@ -13,3 +13,6 @@ export type Category = typeof CATEGORY_OPTIONS[number];
 export const ADMIN_URL_KEY = 'admin_gas_url';
 export const AUTH_STATE_KEY = 'auth_state';
 export const CURRENT_SCHOOL_KEY = 'current_school';
+
+// 기본 관리자 Apps Script URL
+export const DEFAULT_ADMIN_GAS_URL = 'https://script.google.com/macros/s/AKfycbwMnm5e6JAy6Fby1Hu98EBECxJEoh_pmNk3wK6wJnEV6d0fjcO1LGsWJg6mxnMsiAnh/exec';

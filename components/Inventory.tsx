@@ -39,7 +39,7 @@ const convertGoogleDriveUrl = (url: string): string => {
 };
 
 const Inventory: React.FC = () => {
-  const { items, isLoading, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
+  const { items, isLoading, isInitialized, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
   const { currentSchool } = useAuth();
 
   // Local UI State
@@ -58,7 +58,11 @@ const Inventory: React.FC = () => {
 
   // Filter logic
   const filteredItems = useMemo(() => {
-    return items.filter(item => 
+    const byLatest = [...items].sort(
+      (a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+    );
+
+    return byLatest.filter(item =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -198,6 +202,20 @@ const Inventory: React.FC = () => {
       setItemToDelete(null);
     }
   };
+
+  if (isLoading || !isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4 bg-white/80 backdrop-blur rounded-2xl px-6 py-8 shadow-sm border border-gray-100">
+          <RefreshCw size={28} className="animate-spin text-indigo-600" />
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-800">재고 데이터를 불러오는 중</p>
+            <p className="text-sm text-gray-500">잠시만 기다려주세요...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

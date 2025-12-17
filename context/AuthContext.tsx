@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SchoolConfig, AuthState } from '../types';
-import { AUTH_STATE_KEY, CURRENT_SCHOOL_KEY, ADMIN_URL_KEY } from '../constants';
+import { AUTH_STATE_KEY, CURRENT_SCHOOL_KEY, ADMIN_URL_KEY, DEFAULT_ADMIN_GAS_URL } from '../constants';
 import { adminApiService } from '../services/adminApi';
 
 interface AuthContextType extends AuthState {
@@ -20,7 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentSchool, setCurrentSchool] = useState<SchoolConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [adminGasUrl, setAdminGasUrlState] = useState(() =>
-    localStorage.getItem(ADMIN_URL_KEY) || ''
+    localStorage.getItem(ADMIN_URL_KEY) || DEFAULT_ADMIN_GAS_URL
   );
 
   // 저장된 인증 상태 복원
@@ -127,8 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 관리자 URL 설정
   const setAdminGasUrl = useCallback((url: string) => {
-    setAdminGasUrlState(url);
-    localStorage.setItem(ADMIN_URL_KEY, url);
+    const normalized = url.trim();
+    setAdminGasUrlState(normalized);
+    localStorage.setItem(ADMIN_URL_KEY, normalized);
   }, []);
 
   return (
