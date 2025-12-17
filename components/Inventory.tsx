@@ -1,12 +1,47 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { InventoryItem, ItemStatus } from '../types';
-import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw } from 'lucide-react';
-import { SCHOOL_OPTIONS, CATEGORY_OPTIONS } from '../constants';
+import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
+import { apiService } from '../services/api';
+
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB
+
+// 구글 드라이브 URL을 img 태그에서 표시 가능한 형식으로 변환
+const convertGoogleDriveUrl = (url: string): string => {
+  if (!url) return '';
+
+  // 이미 lh3 형식이면 그대로 반환
+  if (url.includes('lh3.googleusercontent.com')) {
+    return url;
+  }
+
+  // drive.google.com/uc?export=view&id=FILE_ID 형식
+  const ucMatch = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+  if (ucMatch) {
+    return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+  }
+
+  // drive.google.com/file/d/FILE_ID/view 형식
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) {
+    return `https://lh3.googleusercontent.com/d/${fileMatch[1]}`;
+  }
+
+  // drive.google.com/open?id=FILE_ID 형식
+  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) {
+    return `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
+  }
+
+  return url;
+};
 
 const Inventory: React.FC = () => {
-  const { items, isLoading, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, setSelectedSchool, refreshItems } = useAppContext();
-  
+  const { items, isLoading, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
+  const { currentSchool } = useAuth();
+
   // Local UI State
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,9 +51,10 @@ const Inventory: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
-  const [imageBase64, setImageBase64] = useState<string>('');
-  const [selectedFileName, setSelectedFileName] = useState<string>('선택된 파일 없음');
-  const MAX_IMAGE_BASE64 = 1_800_000; // ~1.8MB (약 3MB 원본 대비 여유)
+  const [viewingImage, setViewingImage] = useState<string | null>(null); // 이미지 뷰어 모달
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter logic
   const filteredItems = useMemo(() => {
@@ -41,6 +77,60 @@ const Inventory: React.FC = () => {
     notes: '',
   });
 
+  // 학교 사용자는 자기 학교만, 그 외에는 선택된 학교
+  const effectiveSchool = currentSchool?.name || (selectedSchool === '모두' ? DEFAULT_SCHOOL : selectedSchool);
+
+  // 이미지 파일 선택 핸들러
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError('');
+
+    // 파일 크기 체크
+    if (file.size > MAX_IMAGE_SIZE) {
+      setUploadError(`이미지 크기가 너무 큽니다. (최대 3MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      return;
+    }
+
+    // 이미지 타입 체크
+    if (!file.type.startsWith('image/')) {
+      setUploadError('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // 파일을 base64로 변환
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // API를 통해 Google Drive에 업로드
+      const result = await apiService.uploadImage(gasUrl, isDemoMode, base64, file.name);
+
+      if (result.success && result.url) {
+        setFormData({ ...formData, imageUrl: result.url });
+        setImagePreview(result.url);
+        setUploadError('');
+      } else {
+        setUploadError(result.message || '이미지 업로드에 실패했습니다.');
+      }
+    } catch (error) {
+      setUploadError('이미지 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
+      // 같은 파일 다시 선택 가능하도록 초기화
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleOpenAdd = () => {
     setEditingItem(null);
     setFormData({
@@ -49,14 +139,13 @@ const Inventory: React.FC = () => {
       quantity: 0,
       location: '',
       status: ItemStatus.IN_STOCK,
-      school: selectedSchool === '모두' ? '대건고' : selectedSchool,
+      school: effectiveSchool,
       notes: '',
       imageUrl: '',
     });
     setSelectedCategories([]);
     setImagePreview('');
-    setImageBase64('');
-    setSelectedFileName('선택된 파일 없음');
+    setUploadError('');
     setIsModalOpen(true);
   };
 
@@ -65,8 +154,7 @@ const Inventory: React.FC = () => {
     setFormData({ ...item });
     setSelectedCategories(item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : []);
     setImagePreview(item.imageUrl || '');
-    setImageBase64('');
-    setSelectedFileName(item.imageUrl ? extractFileName(item.imageUrl) : '선택된 파일 없음');
+    setUploadError('');
     setIsModalOpen(true);
   };
 
@@ -75,14 +163,20 @@ const Inventory: React.FC = () => {
     if (!formData.name || selectedCategories.length === 0) return;
 
     const categoryValue = selectedCategories.join(', ');
-    const payload = { ...formData, category: categoryValue, imageBase64 } as InventoryItem;
+
+    // imageUrl 직접 입력 방식 사용
+    const payload: Partial<InventoryItem> = {
+      ...formData,
+      category: categoryValue,
+      imageUrl: formData.imageUrl || '',
+    };
 
     try {
       setIsSaving(true);
       if (editingItem) {
-        await updateItem({ ...editingItem, ...payload });
+        await updateItem({ ...editingItem, ...payload } as InventoryItem);
       } else {
-        await addItem(payload);
+        await addItem(payload as InventoryItem);
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -102,47 +196,6 @@ const Inventory: React.FC = () => {
       await deleteItem(itemToDelete.id, itemToDelete.school);
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
-    }
-  };
-
-  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          let { width, height } = img;
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Canvas not supported'));
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(compressed);
-        };
-        img.onerror = reject;
-        img.src = event.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const extractFileName = (url: string): string => {
-    try {
-      const parts = url.split('/').filter(Boolean);
-      return decodeURIComponent(parts[parts.length - 1]) || url;
-    } catch {
-      return url;
     }
   };
 
@@ -172,26 +225,14 @@ const Inventory: React.FC = () => {
         </button>
       </div>
 
-      {/* School Selector */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 sm:items-center">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">학교 선택</span>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={selectedSchool}
-            onChange={async (e) => {
-              const newSchool = e.target.value;
-              setSelectedSchool(newSchool);
-              await refreshItems(newSchool);
-            }}
-          >
-            {SCHOOL_OPTIONS.map((school) => (
-              <option key={school} value={school}>{school}</option>
-            ))}
-          </select>
+      {/* School Info - 학교 사용자에게는 현재 학교 정보만 표시 */}
+      {currentSchool && (
+        <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center gap-3">
+          <span className="text-sm font-medium text-indigo-700">
+            현재 학교: <span className="font-bold">{currentSchool.name}</span>
+          </span>
         </div>
-        <p className="text-xs text-gray-400">학교별로 시트가 분리되며, '모두'는 전체 학교 데이터를 조회합니다.</p>
-      </div>
+      )}
 
       {/* Toolbar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4">
@@ -227,14 +268,13 @@ const Inventory: React.FC = () => {
                   <div className="text-xs text-gray-500 mt-1">{item.school}</div>
                 </div>
                 {item.imageUrl ? (
-                  <a
-                    href={item.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setViewingImage(item.imageUrl || null)}
                     className="text-xs text-indigo-600 underline"
                   >
                     이미지 보기
-                  </a>
+                  </button>
                 ) : (
                   <span className="text-xs text-gray-400">이미지 없음</span>
                 )}
@@ -319,17 +359,16 @@ const Inventory: React.FC = () => {
                 filteredItems.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{item.name}</td>
-                    <td className="px-6 py-4 text-gray-700">{item.school}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-gray-700 whitespace-nowrap">{item.school}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {item.imageUrl ? (
-                        <a
-                          href={item.imageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+                        <button
+                          type="button"
+                          onClick={() => setViewingImage(item.imageUrl || null)}
+                          className="inline-flex items-center px-3 py-1 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 whitespace-nowrap"
                         >
                           이미지 보기
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-xs text-gray-400">-</span>
                       )}
@@ -346,7 +385,7 @@ const Inventory: React.FC = () => {
                     <td className="px-6 py-4">{item.location}</td>
                     <td className="px-6 py-4 text-gray-600 max-w-xs">{item.notes || '-'}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap
                         ${item.status === ItemStatus.IN_STOCK ? 'bg-green-50 text-green-700 border-green-200' :
                           item.status === ItemStatus.LOW_STOCK ? 'bg-amber-50 text-amber-700 border-amber-200' :
                           'bg-red-50 text-red-700 border-red-200'
@@ -404,15 +443,13 @@ const Inventory: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">학교</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  value={formData.school}
-                  onChange={e => setFormData({ ...formData, school: e.target.value })}
-                >
-                  {SCHOOL_OPTIONS.map((school) => (
-                    <option key={school} value={school}>{school}</option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                  value={formData.school || effectiveSchool}
+                />
+                <p className="text-xs text-gray-400 mt-1">현재 접속한 학교로 자동 설정됩니다.</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -462,10 +499,7 @@ const Inventory: React.FC = () => {
                     value={formData.quantity}
                     onChange={e => {
                       const qty = parseInt(e.target.value) || 0;
-                      let status = ItemStatus.IN_STOCK;
-                      if (qty === 0) status = ItemStatus.OUT_OF_STOCK;
-                      else if (qty < 10) status = ItemStatus.LOW_STOCK;
-                      setFormData({ ...formData, quantity: qty, status });
+                      setFormData({ ...formData, quantity: qty });
                     }}
                   />
                 </div>
@@ -478,52 +512,115 @@ const Inventory: React.FC = () => {
                     value={formData.notes}
                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
                   />
-                  <p className="text-xs text-gray-400 mt-1">수량에 따라 상태는 자동 계산됩니다.</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">이미지 업로드</label>
-                <div className="flex items-center gap-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                <div className="flex flex-wrap gap-2">
+                  {[ItemStatus.IN_STOCK, ItemStatus.LOW_STOCK, ItemStatus.OUT_OF_STOCK].map(status => (
+                    <button
+                      type="button"
+                      key={status}
+                      onClick={() => setFormData({ ...formData, status })}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        formData.status === status
+                          ? status === ItemStatus.IN_STOCK ? 'bg-green-600 text-white border-green-600'
+                            : status === ItemStatus.LOW_STOCK ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-red-600 text-white border-red-600'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이미지</label>
+                <div className="flex flex-col gap-3">
+                  {/* 파일 업로드 버튼 */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isUploading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-gray-400 border-t-indigo-600 rounded-full animate-spin"></span>
+                          <span className="text-sm text-gray-600">업로드 중...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={16} className="text-gray-500" />
+                          <span className="text-sm text-gray-600">파일 선택</span>
+                        </>
+                      )}
+                    </button>
+                    <span className="text-xs text-gray-400">또는 URL 직접 입력</span>
+                  </div>
+
+                  {/* URL 직접 입력 */}
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 3 * 1024 * 1024) {
-                        alert('이미지 용량이 3MB를 초과합니다. 더 작은 파일을 선택해주세요.');
-                        e.target.value = '';
-                        return;
-                      }
-                      try {
-                        const resized = await resizeImage(file, 800, 800);
-                        if (resized.length > MAX_IMAGE_BASE64) {
-                          alert('이미지 용량이 큽니다. 해상도를 더 줄이거나 다른 이미지를 선택해주세요.');
-                          setImagePreview('');
-                          setImageBase64('');
-                          setSelectedFileName('선택된 파일 없음');
-                          e.target.value = '';
-                          return;
-                        }
-                        setImagePreview(resized);
-                        setImageBase64(resized);
-                        setSelectedFileName(file.name);
-                      } catch (err) {
-                        alert('이미지 처리에 실패했습니다. 다른 파일을 시도해주세요.');
-                      }
+                    type="url"
+                    placeholder="이미지 URL을 입력하세요"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                    value={formData.imageUrl || ''}
+                    onChange={e => {
+                      setFormData({ ...formData, imageUrl: e.target.value });
+                      setImagePreview(e.target.value);
+                      setUploadError('');
                     }}
                   />
-                  <span className="text-sm text-gray-500">{selectedFileName}</span>
+
+                  {/* 에러 메시지 */}
+                  {uploadError && (
+                    <div className="p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                      <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+                      <span className="text-xs text-red-600">{uploadError}</span>
+                    </div>
+                  )}
+
+                  {/* 이미지 미리보기 */}
                   {imagePreview && (
-                    <img
-                      src={imagePreview}
-                      alt="미리보기"
-                      className="w-16 h-16 rounded-lg object-cover border"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    />
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <img
+                        src={imagePreview}
+                        alt="미리보기"
+                        className="w-20 h-20 rounded-lg object-cover border border-gray-200"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-green-600 block">이미지 설정됨</span>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{formData.imageUrl}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, imageUrl: '' });
+                            setImagePreview('');
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 mt-1 flex items-center gap-1"
+                        >
+                          <X size={12} />
+                          삭제
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-1">카메라 촬영 또는 갤러리에서 선택해 업로드할 수 있습니다.</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  파일을 직접 업로드하거나 구글 드라이브 URL을 입력하세요. (최대 3MB)
+                </p>
               </div>
               
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
@@ -571,6 +668,29 @@ const Inventory: React.FC = () => {
                   삭제
                 </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setViewingImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-sm"
+            >
+              닫기 ✕
+            </button>
+            <img
+              src={convertGoogleDriveUrl(viewingImage)}
+              alt="이미지 상세보기"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}

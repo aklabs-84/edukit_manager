@@ -1,16 +1,20 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { CheckCircle, PackageSearch, Clock, RefreshCw } from 'lucide-react';
 import { ItemStatus } from '../types';
-import { SCHOOL_OPTIONS } from '../constants';
 
 const Dashboard: React.FC = () => {
-  const { allItems, isLoading, refreshItems, isDemoMode, selectedSchool, setSelectedSchool } = useAppContext();
+  const { allItems, items, isLoading, refreshItems, isDemoMode, selectedSchool } = useAppContext();
+  const { currentSchool, isAdmin } = useAuth();
 
-  const filteredItems = selectedSchool === '모두'
-    ? allItems
-    : allItems.filter(item => item.school === selectedSchool);
+  // 학교 사용자는 자기 학교 데이터만, 관리자는 필터링된 데이터
+  const filteredItems = currentSchool
+    ? items  // 학교 사용자는 items 사용 (이미 해당 학교 데이터만 있음)
+    : selectedSchool === '모두'
+      ? allItems
+      : allItems.filter(item => item.school === selectedSchool);
 
   // Stats Logic
   const totalItems = filteredItems.length;
@@ -48,17 +52,19 @@ const Dashboard: React.FC = () => {
     </div>
   );
 
+  const displaySchoolName = currentSchool?.name || selectedSchool;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {selectedSchool === '모두' ? '모든 학교 교구 현황' : `${selectedSchool} 교구 현황`}
+            {displaySchoolName === '모두' ? '모든 학교 교구 현황' : `${displaySchoolName} 교구 현황`}
             {isDemoMode && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">데모 모드</span>}
           </p>
         </div>
-        <button 
+        <button
           onClick={() => refreshItems()}
           disabled={isLoading}
           className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
@@ -66,26 +72,6 @@ const Dashboard: React.FC = () => {
         >
           <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
         </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700">학교 선택</span>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            value={selectedSchool}
-            onChange={async (e) => {
-              const school = e.target.value;
-              setSelectedSchool(school);
-              await refreshItems(school);
-            }}
-          >
-            {SCHOOL_OPTIONS.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Stats Grid */}

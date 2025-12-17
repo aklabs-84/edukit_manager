@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { InventoryItem, AppState } from '../types';
+import { InventoryItem, AppState, SchoolConfig } from '../types';
 import { apiService } from '../services/api';
-import { ALL_SCHOOLS_KEY } from '../constants';
+import { ALL_SCHOOLS_KEY, DEFAULT_SCHOOLS } from '../constants';
+import { useAuth } from './AuthContext';
 
 interface AppContextType extends AppState {
   refreshItems: (schoolOverride?: string) => Promise<void>;
@@ -16,18 +17,50 @@ interface AppContextType extends AppState {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentSchool, isAdmin, adminGasUrl, isLoading: authLoading } = useAuth();
+
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [allItems, setAllItems] = useState<InventoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 초기값 true로 변경
   const [error, setError] = useState<string | null>(null);
+  const [schools, setSchools] = useState<SchoolConfig[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false); // 초기화 완료 플래그
 
-  // Initialize from local storage
-  const [gasUrl, setGasUrlState] = useState(() => localStorage.getItem('gas_url') || '');
+  // 학교별 자동 URL 연결: currentSchool의 scriptUrl 사용
+  const [gasUrl, setGasUrlState] = useState(() => {
+    // 현재 학교의 scriptUrl이 있으면 사용, 없으면 저장된 URL 사용
+    return currentSchool?.scriptUrl || localStorage.getItem('gas_url') || '';
+  });
+
   const [isDemoMode, setIsDemoMode] = useState(() => {
+    // 현재 학교가 있고 scriptUrl이 있으면 데모 모드 아님
+    if (currentSchool?.scriptUrl) {
+      return false;
+    }
     const saved = localStorage.getItem('is_demo_mode');
     return saved === null ? true : saved === 'true';
   });
-  const [selectedSchool, setSelectedSchool] = useState(() => localStorage.getItem('selected_school') || '모두');
+
+  // 학교 사용자는 해당 학교만, 관리자는 '모두' 가능
+  const [selectedSchool, setSelectedSchool] = useState(() => {
+    if (currentSchool) {
+      return currentSchool.name;
+    }
+    return localStorage.getItem('selected_school') || '모두';
+  });
+
+  // currentSchool 변경 시 자동으로 설정 업데이트
+  useEffect(() => {
+    if (currentSchool) {
+      setSelectedSchool(currentSchool.name);
+      if (currentSchool.scriptUrl) {
+        setGasUrlState(currentSchool.scriptUrl);
+        // 실제 URL이 있으면 데모 모드 해제
+        setIsDemoMode(false);
+        localStorage.setItem('is_demo_mode', 'false');
+      }
+    }
+  }, [currentSchool]);
 
   // 개선: 필요한 데이터만 로드 (이전: 항상 2개 API 호출)
   const refreshItems = useCallback(async (schoolOverride?: string) => {
@@ -61,8 +94,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [gasUrl, isDemoMode]);
 
+  // Auth 로딩이 완료된 후에만 데이터 로드 (데모 데이터 깜빡임 방지)
   useEffect(() => {
-    // 초기 로드: 선택된 학교 + 전체 데이터(대시보드용)
+    // Auth 로딩 중이면 대기
+    if (authLoading) {
+      return;
+    }
+
+    // 이미 초기화되었으면 스킵 (gasUrl/isDemoMode 변경 시에만 재로드)
+    if (isInitialized) {
+      return;
+    }
+
     const init = async () => {
       setIsLoading(true);
       try {
@@ -76,10 +119,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setError(err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다.');
       } finally {
         setIsLoading(false);
+        setIsInitialized(true);
       }
     };
     init();
-  }, [gasUrl, isDemoMode]); // selectedSchool 변경 시에는 refreshItems 사용
+  }, [authLoading, gasUrl, isDemoMode, selectedSchool, isInitialized]);
+
+  // gasUrl 또는 isDemoMode가 변경되면 다시 로드 필요
+  useEffect(() => {
+    if (isInitialized) {
+      setIsInitialized(false); // 다시 초기화 트리거
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gasUrl, isDemoMode]);
 
   // Optimistic Update: 추가
   const addItem = async (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
@@ -173,6 +225,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       gasUrl,
       isDemoMode,
       selectedSchool,
+      schools,
       refreshItems,
       addItem,
       updateItem,
