@@ -24,7 +24,7 @@ import { SchoolConfig } from '../types';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { logout, adminGasUrl, isAdmin, setAdminGasUrl } = useAuth();
+  const { logout, adminGasUrl, isAdmin, setAdminGasUrl, setCurrentSchool } = useAuth();
 
   const [schools, setSchools] = useState<SchoolConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +71,11 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEnterSchool = (school: SchoolConfig) => {
+    setCurrentSchool(school);
+    navigate('/school/dashboard');
   };
 
   useEffect(() => {
@@ -448,6 +453,13 @@ const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleEnterSchool(school)}
+                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="학교 페이지로 이동"
+                          >
+                            <ExternalLink size={16} />
+                          </button>
                           <button
                             onClick={() => openEditModal(school)}
                             className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"

@@ -6,6 +6,7 @@ import { adminApiService } from '../services/adminApi';
 interface AuthContextType extends AuthState {
   adminGasUrl: string;
   setAdminGasUrl: (url: string) => void;
+  setCurrentSchool: (school: SchoolConfig | null) => void;
   loginWithCode: (code: string) => Promise<{ success: boolean; message?: string }>;
   loginAsAdmin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
@@ -132,6 +133,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(ADMIN_URL_KEY, normalized);
   }, []);
 
+  // 관리자용: 특정 학교로 바로 전환
+  const setCurrentSchoolDirect = useCallback((school: SchoolConfig | null) => {
+    setCurrentSchool(school);
+    saveAuthState(isAuthenticated || isAdmin, isAdmin, school);
+  }, [isAdmin, isAuthenticated, saveAuthState]);
+
   return (
     <AuthContext.Provider value={{
       isAuthenticated,
@@ -139,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentSchool,
       adminGasUrl,
       setAdminGasUrl,
+      setCurrentSchool: setCurrentSchoolDirect,
       loginWithCode,
       loginAsAdmin,
       logout,

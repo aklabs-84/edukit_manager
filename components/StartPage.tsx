@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const StartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { loginWithCode, adminGasUrl, setAdminGasUrl, isLoading } = useAuth();
+  const { loginWithCode, adminGasUrl, setAdminGasUrl, isLoading, isAdmin } = useAuth();
 
   const [schoolCode, setSchoolCode] = useState('');
   const [error, setError] = useState('');
@@ -71,18 +71,20 @@ const StartPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 flex flex-col">
       {/* 상단 설정 버튼 */}
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={() => setShowUrlSetting(!showUrlSetting)}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-lg transition-colors"
-          title="API URL 설정"
-        >
-          <Settings size={20} />
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={() => setShowUrlSetting(!showUrlSetting)}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-lg transition-colors"
+            title="API URL 설정"
+          >
+            <Settings size={20} />
+          </button>
+        </div>
+      )}
 
       {/* URL 설정 패널 */}
-      {showUrlSetting && (
+      {isAdmin && showUrlSetting && (
         <div className="absolute top-14 right-4 bg-white rounded-lg shadow-lg p-4 w-80 z-10">
           <h3 className="font-medium text-gray-900 mb-2">관리자 API URL 설정</h3>
           <input
@@ -123,7 +125,7 @@ const StartPage: React.FC = () => {
               <Box className="text-white" size={40} />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">에듀킷 매니저</h1>
-            <p className="text-gray-600">학교 재고 관리 시스템</p>
+            <p className="text-gray-600">학교 코딩 교육 교구 관리 시스템</p>
             {isDemoMode && (
               <span className="inline-block mt-2 px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full">
                 데모 모드
@@ -200,7 +202,14 @@ const StartPage: React.FC = () => {
           {/* 안내 문구 */}
           <p className="text-center text-sm text-gray-500 mt-6">
             학교 코드가 없으신가요?{' '}
-            <span className="text-indigo-600">관리자에게 문의하세요.</span>
+            <a
+              href="https://tally.so/r/gDedzM"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-600 underline hover:text-indigo-700"
+            >
+              관리자에게 문의하세요.
+            </a>
           </p>
         </div>
       </div>

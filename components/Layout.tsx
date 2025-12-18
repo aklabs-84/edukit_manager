@@ -122,6 +122,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {!isCollapsed && '아크랩스 홈페이지'}
               {isCollapsed && <span className="sr-only">아크랩스 홈페이지</span>}
             </a>
+            <a
+              href="https://tally.so/r/gDedgJ"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={isCollapsed ? '수업 문의하기' : undefined}
+              className={`
+                flex items-center gap-3 py-3 rounded-lg transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900
+                ${isCollapsed ? 'justify-center px-2' : 'px-4'}
+              `}
+            >
+              <ExternalLink size={20} />
+              {!isCollapsed && '수업 문의하기'}
+              {isCollapsed && <span className="sr-only">수업 문의하기</span>}
+            </a>
             <button
               onClick={handleLogout}
               title={isCollapsed ? '로그아웃' : undefined}

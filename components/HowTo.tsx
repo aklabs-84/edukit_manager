@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, Link as LinkIcon, RefreshCw, Database, ShieldCheck, ListChecks } from 'lucide-react';
+import { Info, Plus, ClipboardList, Edit2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 
 const HowTo: React.FC = () => {
   return (
@@ -15,45 +15,48 @@ const HowTo: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
           <div className="flex items-center gap-2 text-indigo-600 font-semibold">
-            <LinkIcon size={18} /> 1) 구글 시트 연결
+            <Plus size={18} /> 1) 교구 추가하기
           </div>
           <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-            <li>구글 시트 → 확장 프로그램 → 앱스 스크립트 → 제공된 스크립트를 붙여넣고 <span className="font-semibold">웹 앱</span>으로 배포합니다.</li>
-            <li>배포 시 <span className="font-semibold">실행자: 나</span>, <span className="font-semibold">액세스: 모두(익명)</span>로 설정 후 생성된 웹앱 URL을 복사합니다.</li>
-            <li>웹앱에서 <span className="font-semibold">설정</span> 메뉴 → URL 입력 후 저장하고 <span className="font-semibold">데모 모드</span>를 끕니다.</li>
+            <li>재고 관리 화면 오른쪽 위 <span className="font-semibold">“교구 추가”</span> 버튼을 누릅니다.</li>
+            <li>교구명과 카테고리(복수 선택 가능), 수량, 보관 위치를 입력합니다.</li>
+            <li>사진을 올리려면 이미지 URL을 붙여넣거나, 파일 선택으로 업로드합니다.</li>
+            <li>비고에 파손 여부, 대여 현황 등 추가 메모를 남길 수 있습니다.</li>
+            <li>저장을 누르면 바로 목록과 학교 재고에 반영됩니다.</li>
           </ol>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
           <div className="flex items-center gap-2 text-indigo-600 font-semibold">
-            <Database size={18} /> 2) 학교별 데이터 사용
+            <ClipboardList size={18} /> 2) 입력 시 참고사항
           </div>
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-            <li><span className="font-semibold">재고 관리</span> 상단의 학교 선택으로 학교별 시트를 전환합니다.</li>
-            <li><span className="font-semibold">모두</span>를 선택하면 모든 학교 데이터를 한 번에 조회합니다.</li>
-            <li>추가/수정 시 모달의 <span className="font-semibold">학교</span> 필드 값 기준으로 해당 학교 시트에 저장됩니다.</li>
+            <li>현재 로그인한 학교로 자동 지정되니 <span className="font-semibold">학교 필드는 수정할 필요가 없습니다.</span></li>
+            <li>카테고리를 여러 개 눌러 선택하면 필터링과 검색이 편해집니다.</li>
+            <li>수량은 숫자만 입력하며, 상태(재고 있음/부족/품절)는 수량에 따라 자동 표시됩니다.</li>
+            <li>이미지 링크가 없을 때는 비워두면 “이미지 보기” 버튼이 숨겨집니다.</li>
           </ul>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
           <div className="flex items-center gap-2 text-indigo-600 font-semibold">
-            <ListChecks size={18} /> 3) CRUD 사용법
+            <Edit2 size={18} /> 3) 수정·삭제
           </div>
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-            <li><span className="font-semibold">교구 추가</span>: 상단 버튼 → 필수 필드 입력 → 저장.</li>
-            <li><span className="font-semibold">수정</span>: 목록의 연필 아이콘 클릭 후 수정/저장.</li>
-            <li><span className="font-semibold">삭제</span>: 휴지통 아이콘 → 확인.</li>
-            <li>수량에 따라 상태가 자동 계산되며, 기타 사항에 전달 메모를 남길 수 있습니다.</li>
+            <li>목록에서 연필 아이콘을 눌러 교구 정보를 변경하고 저장합니다.</li>
+            <li>삭제는 휴지통 아이콘 → 확인 버튼을 눌러 확정합니다.</li>
+            <li>이미지, 비고, 카테고리를 수정하면 즉시 반영됩니다.</li>
           </ul>
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
           <div className="flex items-center gap-2 text-indigo-600 font-semibold">
-            <RefreshCw size={18} /> 4) 동기화 & 새로고침
+            <Search size={18} /> 4) 검색·필터·새로고침
           </div>
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-            <li>상단 새로고침 아이콘으로 스프레드시트와 즉시 동기화합니다.</li>
-            <li>데모 모드를 켜면 로컬 mock 데이터로만 동작하니, 실제 시트 반영 시 데모 모드를 꺼주세요.</li>
+            <li>상단 검색창에서 교구명, 카테고리, 위치, 비고로 빠르게 찾을 수 있습니다.</li>
+            <li>카테고리를 여러 개 선택하면 해당 태그가 모두 적용된 교구만 표시됩니다.</li>
+            <li><RefreshCw size={14} className="inline-block align-middle" /> 새로고침 버튼으로 최신 재고를 다시 불러옵니다.</li>
           </ul>
         </div>
       </div>
@@ -63,9 +66,9 @@ const HowTo: React.FC = () => {
         <div className="text-sm text-gray-700 leading-relaxed">
           <p className="font-semibold text-indigo-700 mb-1">문제 해결 팁</p>
           <ul className="list-disc list-inside space-y-1">
-            <li>시트에 데이터가 안 보이면: URL과 권한(실행자: 나, 액세스: 모두)을 다시 확인하고 웹앱을 재배포하세요.</li>
-            <li>학교가 추가되면: 학교 선택에서 새 학교 이름을 입력해 저장하면 해당 이름으로 시트가 자동 생성됩니다.</li>
-            <li>느린 경우: 데모 모드로 UI만 테스트하거나, “모두” 대신 특정 학교만 조회해 호출량을 줄여보세요.</li>
+            <li>수정/저장이 실패하면: 페이지를 새로고침하거나 브라우저를 닫았다 다시 열고 다시 시도해 보세요.</li>
+            <li>계속 실패할 경우: 입력한 내용을 삭제한 뒤, 같은 내용으로 다시 입력해 저장해 보세요.</li>
+            <li>문제가 지속되면: <a href="https://litt.ly/aklabs" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline">홈페이지 문의하기</a>를 통해 상황을 알려주세요.</li>
           </ul>
         </div>
       </div>

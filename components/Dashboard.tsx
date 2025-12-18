@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -24,6 +24,33 @@ const Dashboard: React.FC = () => {
   const recentItems = [...filteredItems]
     .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
     .slice(0, 5);
+
+  // Location Data
+  const locationData = useMemo(() => {
+    const groups = new Map<string, {
+      location: string;
+      itemCount: number;
+      totalQuantity: number;
+      categories: Set<string>;
+      items: string[];
+    }>();
+
+    filteredItems.forEach(item => {
+      const key = item.location?.trim() || '미지정';
+      if (!groups.has(key)) {
+        groups.set(key, { location: key, itemCount: 0, totalQuantity: 0, categories: new Set(), items: [] });
+      }
+      const group = groups.get(key)!;
+      group.itemCount += 1;
+      group.totalQuantity += Number(item.quantity) || 0;
+      item.category.split(',').map(c => c.trim()).filter(Boolean).forEach(c => group.categories.add(c));
+      if (group.items.length < 4) {
+        group.items.push(item.name);
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) => b.totalQuantity - a.totalQuantity);
+  }, [filteredItems]);
 
   // Chart Data: Quantity by Category
   const categoryData = filteredItems.reduce((acc, item) => {
@@ -90,20 +117,81 @@ const Dashboard: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard 
-          title="총 품목 수" 
-          value={totalItems} 
-          icon={PackageSearch} 
-          color="bg-blue-500" 
+        <StatCard
+          title="총 품목 수"
+          value={totalItems}
+          icon={PackageSearch}
+          color="bg-blue-500"
           subText="등록된 교구 종류"
         />
-        <StatCard 
-          title="총 수량" 
-          value={totalQuantity} 
-          icon={CheckCircle} 
+        <StatCard
+          title="총 수량"
+          value={totalQuantity}
+          icon={CheckCircle}
           color="bg-green-500"
           subText="전체 교구 개수"
         />
+      </div>
+
+      {/* Location Overview */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">위치별 교구</h2>
+            <p className="text-sm text-gray-500">보관 위치마다 어떤 교구가 있는지 한눈에 확인하세요.</p>
+          </div>
+          <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+            총 {locationData.length}곳
+          </span>
+        </div>
+        {locationData.length === 0 ? (
+          <p className="text-gray-400 text-center py-6">등록된 교구가 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {locationData.map((loc) => (
+              <div
+                key={loc.location}
+                className="border border-gray-100 rounded-xl p-4 hover:border-indigo-100 hover:shadow-sm transition-colors bg-gray-50/60"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-sm text-gray-500">위치</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{loc.location}</h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">교구 수</p>
+                    <p className="font-bold text-indigo-600">{loc.itemCount}개</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                  <span>총 수량</span>
+                  <span className="font-semibold text-gray-900">{loc.totalQuantity}</span>
+                </div>
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-1">주요 교구</p>
+                  <div className="text-sm text-gray-800 line-clamp-2">
+                    {loc.items.join(', ')}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from(loc.categories).slice(0, 3).map((cat) => (
+                    <span
+                      key={cat}
+                      className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                  {loc.categories.size > 3 && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                      +{loc.categories.size - 3}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
