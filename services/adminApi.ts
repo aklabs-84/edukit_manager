@@ -7,6 +7,8 @@ const DEMO_SCHOOLS: SchoolConfig[] = DEFAULT_SCHOOLS.map((name, index) => ({
   code: `DEMO${String(index + 1).padStart(3, '0')}`,
   scriptUrl: '',
   createdAt: new Date().toISOString(),
+  sheetUrl: '',
+  driveFolderUrl: '',
 }));
 
 const DEMO_STORAGE_KEY = 'demo_school_settings';
@@ -130,6 +132,8 @@ export const adminApiService = {
           name: school.name,
           code: school.code,
           scriptUrl: school.scriptUrl,
+          sheetUrl: school.sheetUrl,
+          driveFolderUrl: school.driveFolderUrl,
         }),
       });
       const result: SchoolApiResponse = await response.json();
@@ -161,6 +165,8 @@ export const adminApiService = {
         name: school.name,
         code: school.code,
         scriptUrl: school.scriptUrl,
+        sheetUrl: school.sheetUrl,
+        driveFolderUrl: school.driveFolderUrl,
       };
       saveDemoSchools(schools);
 
@@ -176,6 +182,8 @@ export const adminApiService = {
           name: school.name,
           code: school.code,
           scriptUrl: school.scriptUrl,
+          sheetUrl: school.sheetUrl,
+          driveFolderUrl: school.driveFolderUrl,
         }),
       });
       const result: SchoolApiResponse = await response.json();

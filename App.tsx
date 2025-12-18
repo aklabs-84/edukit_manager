@@ -5,10 +5,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
+import InventoryFormPage from './components/InventoryFormPage';
 import HowTo from './components/HowTo';
 import StartPage from './components/StartPage';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
+import AdminSchoolEditPage from './components/AdminSchoolEditPage';
 
 // 인증이 필요한 라우트를 보호하는 컴포넌트
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requireAdmin?: boolean }> = ({
@@ -43,6 +45,7 @@ const SchoolRoutes: React.FC = () => {
       <Routes>
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inventory" element={<Inventory />} />
+        <Route path="inventory/new" element={<InventoryFormPage />} />
         <Route path="guide" element={<HowTo />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
@@ -74,6 +77,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requireAdmin>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/schools/:code"
+        element={
+          <ProtectedRoute requireAdmin>
+            <AdminSchoolEditPage />
           </ProtectedRoute>
         }
       />

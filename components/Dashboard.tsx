@@ -1,13 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { CheckCircle, PackageSearch, Clock, RefreshCw } from 'lucide-react';
+import { CheckCircle, PackageSearch, Clock, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { ItemStatus } from '../types';
 
 const Dashboard: React.FC = () => {
   const { allItems, items, isLoading, isInitialized, refreshItems, isDemoMode, selectedSchool } = useAppContext();
   const { currentSchool, isAdmin } = useAuth();
+  const [expandedLocations, setExpandedLocations] = useState<Record<string, boolean>>({});
 
   // 학교 사용자는 자기 학교 데이터만, 관리자는 필터링된 데이터
   const filteredItems = currentSchool
@@ -81,6 +82,10 @@ const Dashboard: React.FC = () => {
 
   const displaySchoolName = currentSchool?.name || selectedSchool;
 
+  const toggleLocation = (key: string) => {
+    setExpandedLocations(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   if (isLoading || !isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -135,12 +140,12 @@ const Dashboard: React.FC = () => {
 
       {/* Location Overview */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-800">위치별 교구</h2>
             <p className="text-sm text-gray-500">보관 위치마다 어떤 교구가 있는지 한눈에 확인하세요.</p>
           </div>
-          <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+          <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 whitespace-nowrap">
             총 {locationData.length}곳
           </span>
         </div>
@@ -148,48 +153,65 @@ const Dashboard: React.FC = () => {
           <p className="text-gray-400 text-center py-6">등록된 교구가 없습니다.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {locationData.map((loc) => (
-              <div
-                key={loc.location}
-                className="border border-gray-100 rounded-xl p-4 hover:border-indigo-100 hover:shadow-sm transition-colors bg-gray-50/60"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-sm text-gray-500">위치</p>
-                    <h3 className="text-lg font-semibold text-gray-900">{loc.location}</h3>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">교구 수</p>
-                    <p className="font-bold text-indigo-600">{loc.itemCount}개</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                  <span>총 수량</span>
-                  <span className="font-semibold text-gray-900">{loc.totalQuantity}</span>
-                </div>
-                <div className="mb-3">
-                  <p className="text-xs text-gray-500 mb-1">주요 교구</p>
-                  <div className="text-sm text-gray-800 line-clamp-2">
-                    {loc.items.join(', ')}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {Array.from(loc.categories).slice(0, 3).map((cat) => (
-                    <span
-                      key={cat}
-                      className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700"
-                    >
-                      {cat}
-                    </span>
-                  ))}
-                  {loc.categories.size > 3 && (
-                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">
-                      +{loc.categories.size - 3}
-                    </span>
+            {locationData.map((loc) => {
+              const expanded = !!expandedLocations[loc.location];
+              return (
+                <div
+                  key={loc.location}
+                  className="border border-gray-100 rounded-xl p-4 hover:border-indigo-100 hover:shadow-sm transition-colors bg-gray-50/60"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleLocation(loc.location)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm text-gray-500">위치</p>
+                        <h3 className="text-lg font-semibold text-gray-900">{loc.location}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">교구 수</p>
+                          <p className="font-bold text-indigo-600">{loc.itemCount}개</p>
+                        </div>
+                        {expanded ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+                      </div>
+                    </div>
+                  </button>
+
+                  {expanded && (
+                    <div className="mt-3 space-y-3">
+                      <div className="flex items-center justify-between text-sm text-gray-600">
+                        <span>총 수량</span>
+                        <span className="font-semibold text-gray-900">{loc.totalQuantity}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">주요 교구</p>
+                        <div className="text-sm text-gray-800">
+                          {loc.items.length > 0 ? loc.items.join(', ') : '-'}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from(loc.categories).slice(0, 4).map((cat) => (
+                          <span
+                            key={cat}
+                            className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700"
+                          >
+                            {cat}
+                          </span>
+                        ))}
+                        {loc.categories.size > 4 && (
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                            +{loc.categories.size - 4}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

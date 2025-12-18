@@ -17,6 +17,8 @@ import {
   Eye,
   EyeOff,
   Link2,
+  FileSpreadsheet,
+  FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { adminApiService } from '../services/adminApi';
@@ -32,7 +34,6 @@ const AdminDashboard: React.FC = () => {
 
   // 모달 상태
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingSchool, setEditingSchool] = useState<SchoolConfig | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // 관리자 URL 설정
@@ -44,6 +45,8 @@ const AdminDashboard: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [formCode, setFormCode] = useState('');
   const [formScriptUrl, setFormScriptUrl] = useState('');
+  const [formSheetUrl, setFormSheetUrl] = useState('');
+  const [formDriveFolderUrl, setFormDriveFolderUrl] = useState('');
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -98,21 +101,14 @@ const AdminDashboard: React.FC = () => {
     setFormName('');
     setFormCode(adminApiService.generateSchoolCode());
     setFormScriptUrl('');
+    setFormSheetUrl('');
+    setFormDriveFolderUrl('');
     setFormError('');
     setShowAddModal(true);
   };
 
-  const openEditModal = (school: SchoolConfig) => {
-    setFormName(school.name);
-    setFormCode(school.code);
-    setFormScriptUrl(school.scriptUrl);
-    setFormError('');
-    setEditingSchool(school);
-  };
-
   const closeModal = () => {
     setShowAddModal(false);
-    setEditingSchool(null);
     setFormError('');
   };
 
@@ -134,7 +130,13 @@ const AdminDashboard: React.FC = () => {
     try {
       const result = await adminApiService.addSchool(
         adminGasUrl,
-        { name: formName.trim(), code: formCode.trim().toUpperCase(), scriptUrl: formScriptUrl.trim() },
+        {
+          name: formName.trim(),
+          code: formCode.trim().toUpperCase(),
+          scriptUrl: formScriptUrl.trim(),
+          sheetUrl: formSheetUrl.trim(),
+          driveFolderUrl: formDriveFolderUrl.trim(),
+        },
         isDemoMode
       );
 
@@ -152,42 +154,6 @@ const AdminDashboard: React.FC = () => {
   };
 
   // 학교 수정
-  const handleUpdateSchool = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSchool) return;
-    setFormError('');
-
-    if (!formName.trim()) {
-      setFormError('학교 이름을 입력해주세요.');
-      return;
-    }
-    if (!formCode.trim()) {
-      setFormError('학교 코드를 입력해주세요.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const result = await adminApiService.updateSchool(
-        adminGasUrl,
-        editingSchool.code,
-        { name: formName.trim(), code: formCode.trim().toUpperCase(), scriptUrl: formScriptUrl.trim() },
-        isDemoMode
-      );
-
-      if (result.success) {
-        await loadSchools();
-        closeModal();
-      } else {
-        setFormError(result.message || '학교 수정에 실패했습니다.');
-      }
-    } catch {
-      setFormError('학교 수정 중 오류가 발생했습니다.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // 학교 삭제
   const handleDeleteSchool = async (code: string) => {
     setIsSubmitting(true);
@@ -389,7 +355,7 @@ const AdminDashboard: React.FC = () => {
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[720px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">학교 이름</th>
@@ -409,7 +375,7 @@ const AdminDashboard: React.FC = () => {
                           <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
                             <School className="text-indigo-600" size={16} />
                           </div>
-                          <span className="font-medium text-gray-900">{school.name}</span>
+                          <span className="font-medium text-gray-900 whitespace-nowrap">{school.name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -446,7 +412,7 @@ const AdminDashboard: React.FC = () => {
                           )}
                         </td>
                       )}
-                      <td className="px-4 py-4 text-sm text-gray-500">
+                      <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">
                         {school.createdAt
                           ? new Date(school.createdAt).toLocaleDateString('ko-KR')
                           : '-'}
@@ -454,19 +420,35 @@ const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-4">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => school.sheetUrl && window.open(school.sheetUrl, '_blank', 'noopener')}
+                            disabled={!school.sheetUrl}
+                            className={`p-2 rounded-lg transition-colors ${school.sheetUrl ? 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300 cursor-not-allowed'}`}
+                            title={school.sheetUrl ? '스프레드시트 열기' : '스프레드시트 미설정'}
+                          >
+                            <FileSpreadsheet size={16} />
+                          </button>
+                          <button
+                            onClick={() => school.driveFolderUrl && window.open(school.driveFolderUrl, '_blank', 'noopener')}
+                            disabled={!school.driveFolderUrl}
+                            className={`p-2 rounded-lg transition-colors ${school.driveFolderUrl ? 'text-gray-500 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300 cursor-not-allowed'}`}
+                            title={school.driveFolderUrl ? '이미지 폴더 열기' : '폴더 미설정'}
+                          >
+                            <FolderOpen size={16} />
+                          </button>
+                          <button
                             onClick={() => handleEnterSchool(school)}
                             className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="학교 페이지로 이동"
                           >
                             <ExternalLink size={16} />
                           </button>
-                          <button
-                            onClick={() => openEditModal(school)}
-                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="수정"
-                          >
-                            <Edit2 size={16} />
-                          </button>
+            <button
+              onClick={() => navigate(`/admin/schools/${school.code}`)}
+              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="수정"
+            >
+              <Edit2 size={16} />
+            </button>
                           {deleteConfirm === school.code ? (
                             <div className="flex items-center gap-1">
                               <button
@@ -506,16 +488,16 @@ const AdminDashboard: React.FC = () => {
       </main>
 
       {/* 추가/수정 모달 */}
-      {(showAddModal || editingSchool) && (
+      {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                {editingSchool ? '학교 정보 수정' : '새 학교 추가'}
+                새 학교 추가
               </h3>
             </div>
 
-            <form onSubmit={editingSchool ? handleUpdateSchool : handleAddSchool}>
+            <form onSubmit={handleAddSchool}>
               <div className="p-6 space-y-4">
                 {/* 학교 이름 */}
                 <div>
@@ -539,14 +521,14 @@ const AdminDashboard: React.FC = () => {
                   </label>
                   <div className="flex gap-2">
                     <input
-                      type="text"
-                      value={formCode}
-                      onChange={(e) => setFormCode(e.target.value.toUpperCase())}
-                      placeholder="예: ABC123"
-                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      maxLength={10}
-                      disabled={isSubmitting}
-                    />
+                    type="text"
+                    value={formCode}
+                    onChange={(e) => setFormCode(e.target.value.toUpperCase())}
+                    placeholder="예: ABC123"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    maxLength={10}
+                    disabled={isSubmitting}
+                  />
                     <button
                       type="button"
                       onClick={() => setFormCode(adminApiService.generateSchoolCode())}
@@ -579,6 +561,36 @@ const AdminDashboard: React.FC = () => {
                   </p>
                 </div>
 
+                {/* 스프레드시트 URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    스프레드시트 URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formSheetUrl}
+                    onChange={(e) => setFormSheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/..."
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                {/* 구글 드라이브 폴더 URL */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    이미지 폴더 (Google Drive) URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formDriveFolderUrl}
+                    onChange={(e) => setFormDriveFolderUrl(e.target.value)}
+                    placeholder="https://drive.google.com/drive/folders/..."
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
                 {/* 에러 메시지 */}
                 {formError && (
                   <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -607,8 +619,6 @@ const AdminDashboard: React.FC = () => {
                       <Loader2 className="animate-spin" size={18} />
                       처리 중...
                     </>
-                  ) : editingSchool ? (
-                    '수정하기'
                   ) : (
                     '추가하기'
                   )}

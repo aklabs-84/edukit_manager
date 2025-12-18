@@ -216,7 +216,7 @@ const StartPage: React.FC = () => {
 
       {/* 푸터 */}
       <footer className="text-center py-4 text-sm text-gray-500">
-        &copy; 2024 아크랩스. All rights reserved.
+        &copy; 2025 아크랩스. All rights reserved.
       </footer>
     </div>
   );
