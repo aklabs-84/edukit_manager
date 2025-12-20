@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { LocationData, LocationRoom, LocationShelf, LocationSlot } from '../types';
+import { LocationData, LocationRoom, LocationShelf, LocationSlot, SchoolConfig } from '../types';
 import { useAuth } from './AuthContext';
+import { adminApiService } from '../services/adminApi';
 
 interface LocationContextType {
   locationData: LocationData;
@@ -24,47 +25,76 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// localStorage 키 생성 (학교별로 구분)
-const getStorageKey = (schoolCode: string) => `location_data_${schoolCode}`;
-
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentSchool } = useAuth();
-  const schoolCode = currentSchool?.code || 'default';
+  const { currentSchool, adminGasUrl, setCurrentSchool } = useAuth();
+  const schoolCode = currentSchool?.code || '';
+  const isDemoMode = !adminGasUrl;
 
-  const [locationData, setLocationData] = useState<LocationData>(() => {
-    const saved = localStorage.getItem(getStorageKey(schoolCode));
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return { rooms: [], lastUpdated: new Date().toISOString() };
-      }
-    }
-    return { rooms: [], lastUpdated: new Date().toISOString() };
-  });
+  const [locationData, setLocationData] = useState<LocationData>(() => ({
+    rooms: currentSchool?.locations ?? [],
+    lastUpdated: new Date().toISOString()
+  }));
 
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    setLocationData({
+      rooms: currentSchool?.locations ?? [],
+      lastUpdated: new Date().toISOString()
+    });
+  }, [currentSchool?.code]);
+
   // 학교 변경 시 해당 학교의 위치 데이터 로드
   useEffect(() => {
-    const saved = localStorage.getItem(getStorageKey(schoolCode));
-    if (saved) {
-      try {
-        setLocationData(JSON.parse(saved));
-      } catch {
-        setLocationData({ rooms: [], lastUpdated: new Date().toISOString() });
-      }
-    } else {
+    let isActive = true;
+    if (!schoolCode) {
       setLocationData({ rooms: [], lastUpdated: new Date().toISOString() });
+      return;
     }
-  }, [schoolCode]);
 
-  // 데이터 변경 시 localStorage에 저장
+    const loadLocations = async () => {
+      setIsLoading(true);
+      try {
+        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isDemoMode);
+        if (!isActive) return;
+        if (result.success && result.data) {
+          const school = result.data as SchoolConfig;
+          setLocationData({
+            rooms: school.locations ?? [],
+            lastUpdated: new Date().toISOString()
+          });
+          if (currentSchool?.code === school.code) {
+            setCurrentSchool({ ...currentSchool, locations: school.locations ?? [] });
+          }
+        } else {
+          setLocationData({ rooms: [], lastUpdated: new Date().toISOString() });
+        }
+      } catch {
+        if (!isActive) return;
+        setLocationData({ rooms: [], lastUpdated: new Date().toISOString() });
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadLocations();
+    return () => {
+      isActive = false;
+    };
+  }, [adminGasUrl, isDemoMode, schoolCode, currentSchool, setCurrentSchool]);
+
+  // 데이터 변경 시 서버에 저장
   const saveData = useCallback((data: LocationData) => {
     const updated = { ...data, lastUpdated: new Date().toISOString() };
     setLocationData(updated);
-    localStorage.setItem(getStorageKey(schoolCode), JSON.stringify(updated));
-  }, [schoolCode]);
+    if (!schoolCode) return;
+    void adminApiService.updateSchoolLocations(adminGasUrl, schoolCode, updated.rooms, isDemoMode);
+    if (currentSchool?.code === schoolCode) {
+      setCurrentSchool({ ...currentSchool, locations: updated.rooms });
+    }
+  }, [adminGasUrl, currentSchool, isDemoMode, schoolCode, setCurrentSchool]);
 
   // Room CRUD
   const addRoom = (name: string) => {

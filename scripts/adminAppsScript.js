@@ -6,7 +6,7 @@
  * 필요한 시트:
  * 1. "설정" 시트 - 학교 정보 저장
  *    | A (학교이름) | B (학교코드) | C (스크립트URL) | D (스프레드시트URL) |
- *    | E (드라이브폴더URL) | F (카테고리JSON) | G (생성일) |
+ *    | E (드라이브폴더URL) | F (카테고리JSON) | G (위치JSON) | H (생성일) |
  *
  * 2. "관리자" 시트 - 관리자 계정 정보
  *    | A (아이디) | B (비밀번호) |
@@ -61,6 +61,21 @@ function parseCategories(value) {
   return [];
 }
 
+function parseLocations(value) {
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
+  return [];
+}
+
 function normalizeSchoolRow(row) {
   const name = row[0] || '';
   const code = row[1] || '';
@@ -70,12 +85,14 @@ function normalizeSchoolRow(row) {
   const col5 = row[4];
   const col6 = row[5];
   const col7 = row[6];
+  const col8 = row[7];
 
   const col4IsUrl = typeof col4 === 'string' && col4.indexOf('http') === 0;
   const sheetUrl = col4IsUrl ? (col4 || '') : (col5 || '');
   const driveFolderUrl = col4IsUrl ? (col5 || '') : (col6 || '');
   const categories = col4IsUrl ? parseCategories(col6) : parseCategories(col7);
-  const createdAtRaw = col4IsUrl ? col7 : col4;
+  const locations = col4IsUrl ? parseLocations(col7) : parseLocations(col8);
+  const createdAtRaw = col4IsUrl ? col8 : col4;
   const createdAt = createdAtRaw ? new Date(createdAtRaw).toISOString() : null;
 
   return {
@@ -85,6 +102,7 @@ function normalizeSchoolRow(row) {
     sheetUrl,
     driveFolderUrl,
     categories,
+    locations,
     createdAt
   };
 }
@@ -118,14 +136,14 @@ function getSchoolByCode(code) {
 /**
  * 새 학교 추가
  */
-function addSchool(name, code, scriptUrl, sheetUrl, driveFolderUrl, categories) {
+function addSchool(name, code, scriptUrl, sheetUrl, driveFolderUrl, categories, locations) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName('설정');
 
   // 설정 시트가 없으면 생성
   if (!sheet) {
     sheet = ss.insertSheet('설정');
-    sheet.appendRow(['학교이름', '학교코드', '스크립트URL', '스프레드시트URL', '드라이브폴더URL', '카테고리JSON', '생성일']);
+    sheet.appendRow(['학교이름', '학교코드', '스크립트URL', '스프레드시트URL', '드라이브폴더URL', '카테고리JSON', '위치JSON', '생성일']);
   }
 
   // 중복 코드 체크
@@ -142,11 +160,12 @@ function addSchool(name, code, scriptUrl, sheetUrl, driveFolderUrl, categories) 
   // 새 학교 추가
   const createdAt = new Date().toISOString();
   const categoryJson = categories ? JSON.stringify(categories) : JSON.stringify([]);
-  sheet.appendRow([name, code, scriptUrl, sheetUrl || '', driveFolderUrl || '', categoryJson, createdAt]);
+  const locationJson = locations ? JSON.stringify(locations) : JSON.stringify([]);
+  sheet.appendRow([name, code, scriptUrl, sheetUrl || '', driveFolderUrl || '', categoryJson, locationJson, createdAt]);
 
   return {
     success: true,
-    data: { name, code, scriptUrl, sheetUrl: sheetUrl || '', driveFolderUrl: driveFolderUrl || '', categories: categories || [], createdAt },
+    data: { name, code, scriptUrl, sheetUrl: sheetUrl || '', driveFolderUrl: driveFolderUrl || '', categories: categories || [], locations: locations || [], createdAt },
     message: '학교가 추가되었습니다.'
   };
 }
@@ -154,7 +173,7 @@ function addSchool(name, code, scriptUrl, sheetUrl, driveFolderUrl, categories) 
 /**
  * 학교 정보 수정
  */
-function updateSchool(originalCode, name, code, scriptUrl, sheetUrl, driveFolderUrl, categories) {
+function updateSchool(originalCode, name, code, scriptUrl, sheetUrl, driveFolderUrl, categories, locations) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('설정');
 
@@ -184,10 +203,13 @@ function updateSchool(originalCode, name, code, scriptUrl, sheetUrl, driveFolder
       if (typeof categories !== 'undefined') {
         sheet.getRange(i + 1, 6).setValue(JSON.stringify(categories || []));
       }
+      if (typeof locations !== 'undefined') {
+        sheet.getRange(i + 1, 7).setValue(JSON.stringify(locations || []));
+      }
 
       return {
         success: true,
-        data: normalizeSchoolRow(sheet.getRange(i + 1, 1, 1, 7).getValues()[0]),
+        data: normalizeSchoolRow(sheet.getRange(i + 1, 1, 1, 8).getValues()[0]),
         message: '학교 정보가 수정되었습니다.'
       };
     }
@@ -211,7 +233,7 @@ function updateSchoolCategories(code, categories) {
       sheet.getRange(i + 1, 6).setValue(JSON.stringify(categories || []));
       return {
         success: true,
-        data: normalizeSchoolRow(sheet.getRange(i + 1, 1, 1, 7).getValues()[0]),
+        data: normalizeSchoolRow(sheet.getRange(i + 1, 1, 1, 8).getValues()[0]),
         message: '카테고리가 저장되었습니다.'
       };
     }
@@ -220,6 +242,29 @@ function updateSchoolCategories(code, categories) {
   return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
 }
 
+function updateSchoolLocations(code, locations) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('설정');
+
+  if (!sheet) {
+    return { success: false, message: '설정 시트가 없습니다.' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] === code) {
+      sheet.getRange(i + 1, 7).setValue(JSON.stringify(locations || []));
+      return {
+        success: true,
+        data: normalizeSchoolRow(sheet.getRange(i + 1, 1, 1, 8).getValues()[0]),
+        message: '위치가 저장되었습니다.'
+      };
+    }
+  }
+
+  return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
+}
 /**
  * 학교 삭제
  */
@@ -350,11 +395,11 @@ function doPost_admin(e) {
       break;
 
     case 'addSchool':
-      result = addSchool(data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories);
+      result = addSchool(data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories, data.locations);
       break;
 
     case 'updateSchool':
-      result = updateSchool(data.originalCode, data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories);
+      result = updateSchool(data.originalCode, data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories, data.locations);
       break;
 
     case 'deleteSchool':
@@ -367,6 +412,10 @@ function doPost_admin(e) {
 
     case 'updateCategories':
       result = updateSchoolCategories(data.code, data.categories);
+      break;
+
+    case 'updateLocations':
+      result = updateSchoolLocations(data.code, data.locations);
       break;
 
     default:
@@ -458,12 +507,12 @@ function doPost(e) {
 
     case 'addSchool':
       return ContentService.createTextOutput(JSON.stringify(
-        addSchool(data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories)
+        addSchool(data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories, data.locations)
       )).setMimeType(ContentService.MimeType.JSON);
 
     case 'updateSchool':
       return ContentService.createTextOutput(JSON.stringify(
-        updateSchool(data.originalCode, data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories)
+        updateSchool(data.originalCode, data.name, data.code, data.scriptUrl, data.sheetUrl, data.driveFolderUrl, data.categories, data.locations)
       )).setMimeType(ContentService.MimeType.JSON);
 
     case 'deleteSchool':
@@ -479,6 +528,11 @@ function doPost(e) {
     case 'updateCategories':
       return ContentService.createTextOutput(JSON.stringify(
         updateSchoolCategories(data.code, data.categories)
+      )).setMimeType(ContentService.MimeType.JSON);
+
+    case 'updateLocations':
+      return ContentService.createTextOutput(JSON.stringify(
+        updateSchoolLocations(data.code, data.locations)
       )).setMimeType(ContentService.MimeType.JSON);
   }
 

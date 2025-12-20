@@ -27,6 +27,7 @@ export interface SchoolConfig {
   sheetUrl?: string;
   driveFolderUrl?: string;
   categories?: string[];
+  locations?: LocationRoom[];
 }
 
 // 인증 상태
