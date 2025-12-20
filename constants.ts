@@ -15,4 +15,4 @@ export const AUTH_STATE_KEY = 'auth_state';
 export const CURRENT_SCHOOL_KEY = 'current_school';
 
 // 기본 관리자 Apps Script URL
-export const DEFAULT_ADMIN_GAS_URL = 'https://script.google.com/macros/s/AKfycbyhDQR3aepO8ICjJkLy7a2DCPxB27YSsGORzgYOVF24fq77dUE9I2hm3uvw9RsGX3U/exec';
+export const DEFAULT_ADMIN_GAS_URL = 'https://script.google.com/macros/s/AKfycbxvWHEUrPImjMw9eYOWOIRXLUpvYA8QTTToDs4IVkDep9KAxtxr3orJ0mLGoCuzXriF/exec';

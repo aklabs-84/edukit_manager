@@ -14,6 +14,7 @@ import {
   ChevronRight,
   MapPin,
   Shield,
+  Tags,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,6 +32,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navItems = [
     { to: '/school/dashboard', label: '대시보드', icon: LayoutDashboard },
     { to: '/school/inventory', label: '재고 관리', icon: Package },
+    { to: '/school/categories', label: '카테고리 추가', icon: Tags },
     { to: '/school/locations', label: '위치 관리', icon: MapPin },
     { to: '/school/guide', label: '사용 방법', icon: BookOpen },
     { to: adminTarget, label: '관리자 페이지', icon: Shield },

@@ -9,6 +9,7 @@ const DEMO_SCHOOLS: SchoolConfig[] = DEFAULT_SCHOOLS.map((name, index) => ({
   createdAt: new Date().toISOString(),
   sheetUrl: '',
   driveFolderUrl: '',
+  categories: [],
 }));
 
 const DEMO_STORAGE_KEY = 'demo_school_settings';
@@ -32,18 +33,50 @@ const saveDemoSchools = (schools: SchoolConfig[]) => {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(schools));
 };
 
+const normalizeCategories = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === 'string' && item.trim());
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item) => typeof item === 'string' && item.trim());
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+};
+
+const normalizeSchool = (school: SchoolConfig): SchoolConfig => ({
+  ...school,
+  sheetUrl: school.sheetUrl || '',
+  driveFolderUrl: school.driveFolderUrl || '',
+  categories: normalizeCategories(school.categories),
+});
+
+const normalizeSchoolResponse = (data?: SchoolConfig | SchoolConfig[]): SchoolConfig | SchoolConfig[] | undefined => {
+  if (!data) return data;
+  if (Array.isArray(data)) {
+    return data.map(normalizeSchool);
+  }
+  return normalizeSchool(data);
+};
+
 export const adminApiService = {
   // 모든 학교 목록 조회
   getSchools: async (url: string, isDemo: boolean = false): Promise<SchoolApiResponse> => {
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      return { success: true, data: getDemoSchools() };
+      return { success: true, data: getDemoSchools().map(normalizeSchool) };
     }
 
     try {
       const response = await fetch(`${url}?action=getSchools`);
       const result: SchoolApiResponse = await response.json();
-      return result;
+      return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('학교 목록 조회 실패:', error);
       throw error;
@@ -57,7 +90,7 @@ export const adminApiService = {
       const schools = getDemoSchools();
       const school = schools.find(s => s.code === code);
       if (school) {
-        return { success: true, data: school };
+        return { success: true, data: normalizeSchool(school) };
       }
       return { success: false, message: '유효하지 않은 학교 코드입니다.' };
     }
@@ -65,7 +98,7 @@ export const adminApiService = {
     try {
       const response = await fetch(`${url}?action=verifyCode&code=${encodeURIComponent(code)}`);
       const result: SchoolApiResponse = await response.json();
-      return result;
+      return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('학교 코드 확인 실패:', error);
       throw error;
@@ -114,10 +147,10 @@ export const adminApiService = {
         return { success: false, message: '이미 존재하는 학교 이름입니다.' };
       }
 
-      const newSchool: SchoolConfig = {
+      const newSchool: SchoolConfig = normalizeSchool({
         ...school,
         createdAt: new Date().toISOString(),
-      };
+      });
       schools.push(newSchool);
       saveDemoSchools(schools);
 
@@ -134,6 +167,7 @@ export const adminApiService = {
           scriptUrl: school.scriptUrl,
           sheetUrl: school.sheetUrl,
           driveFolderUrl: school.driveFolderUrl,
+          categories: school.categories,
         }),
       });
       const result: SchoolApiResponse = await response.json();
@@ -160,14 +194,15 @@ export const adminApiService = {
         return { success: false, message: '이미 존재하는 학교 코드입니다.' };
       }
 
-      schools[index] = {
+      schools[index] = normalizeSchool({
         ...schools[index],
         name: school.name,
         code: school.code,
         scriptUrl: school.scriptUrl,
         sheetUrl: school.sheetUrl,
         driveFolderUrl: school.driveFolderUrl,
-      };
+        categories: school.categories ?? schools[index].categories,
+      });
       saveDemoSchools(schools);
 
       return { success: true, data: schools[index], message: '학교 정보가 수정되었습니다.' };
@@ -184,6 +219,7 @@ export const adminApiService = {
           scriptUrl: school.scriptUrl,
           sheetUrl: school.sheetUrl,
           driveFolderUrl: school.driveFolderUrl,
+          categories: school.categories,
         }),
       });
       const result: SchoolApiResponse = await response.json();
@@ -221,6 +257,37 @@ export const adminApiService = {
       return result;
     } catch (error) {
       console.error('학교 삭제 실패:', error);
+      throw error;
+    }
+  },
+
+  updateSchoolCategories: async (url: string, code: string, categories: string[], isDemo: boolean = false): Promise<SchoolApiResponse> => {
+    const normalized = normalizeCategories(categories);
+    if (isDemo || !url) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const schools = getDemoSchools();
+      const index = schools.findIndex(s => s.code === code);
+      if (index === -1) {
+        return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
+      }
+      schools[index] = normalizeSchool({ ...schools[index], categories: normalized });
+      saveDemoSchools(schools);
+      return { success: true, data: schools[index], message: '카테고리가 저장되었습니다.' };
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'updateCategories',
+          code,
+          categories: normalized,
+        }),
+      });
+      const result: SchoolApiResponse = await response.json();
+      return { ...result, data: normalizeSchoolResponse(result.data) };
+    } catch (error) {
+      console.error('카테고리 업데이트 실패:', error);
       throw error;
     }
   },

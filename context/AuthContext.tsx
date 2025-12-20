@@ -20,9 +20,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentSchool, setCurrentSchool] = useState<SchoolConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [adminGasUrl, setAdminGasUrlState] = useState(() =>
-    localStorage.getItem(ADMIN_URL_KEY) || DEFAULT_ADMIN_GAS_URL
-  );
+  const [adminGasUrl, setAdminGasUrlState] = useState(() => {
+    const stored = localStorage.getItem(ADMIN_URL_KEY);
+    const normalized = stored?.trim();
+    if (!normalized || normalized === 'null' || normalized === 'undefined') {
+      return DEFAULT_ADMIN_GAS_URL;
+    }
+    return normalized;
+  });
 
   // 저장된 인증 상태 복원
   useEffect(() => {
@@ -132,6 +137,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAdminGasUrlState(normalized);
     localStorage.setItem(ADMIN_URL_KEY, normalized);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && isAdmin && !adminGasUrl) {
+      setAdminGasUrl(DEFAULT_ADMIN_GAS_URL);
+    }
+  }, [adminGasUrl, isAdmin, isLoading, setAdminGasUrl]);
 
   // 관리자용: 특정 학교로 바로 전환
   const setCurrentSchoolDirect = useCallback((school: SchoolConfig | null) => {

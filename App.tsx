@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
 import InventoryFormPage from './components/InventoryFormPage';
+import CategoryManager from './components/CategoryManager';
 import LocationManager from './components/LocationManager';
 import HowTo from './components/HowTo';
 import StartPage from './components/StartPage';
@@ -48,6 +49,7 @@ const SchoolRoutes: React.FC = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/new" element={<InventoryFormPage />} />
+        <Route path="categories" element={<CategoryManager />} />
         <Route path="locations" element={<LocationManager />} />
         <Route path="guide" element={<HowTo />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />

@@ -7,14 +7,17 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
 import { apiService } from '../services/api';
+import { adminApiService } from '../services/adminApi';
 
 const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB
 
 const InventoryFormPage: React.FC = () => {
   const navigate = useNavigate();
   const { addItem, isDemoMode, selectedSchool, gasUrl } = useAppContext();
-  const { currentSchool } = useAuth();
+  const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
+  const isAdminDemoMode = !adminGasUrl;
+  const schoolCode = currentSchool?.code || '';
 
   // 단계별 위치 선택 상태
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -43,11 +46,50 @@ const InventoryFormPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveSchool = useMemo(
     () => currentSchool?.name || (selectedSchool === '모두' ? DEFAULT_SCHOOL : selectedSchool),
     [currentSchool?.name, selectedSchool]
   );
+  const [customCategories, setCustomCategories] = useState<string[]>(() => currentSchool?.categories ?? []);
+  const allCategories = useMemo(() => {
+    const merged = [...CATEGORY_OPTIONS, ...customCategories];
+    return Array.from(new Set(merged));
+  }, [customCategories]);
+
+  useEffect(() => {
+    setCustomCategories(currentSchool?.categories ?? []);
+  }, [currentSchool?.code]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!schoolCode) {
+      setCustomCategories([]);
+      return;
+    }
+
+    const loadCategories = async () => {
+      try {
+        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isAdminDemoMode);
+        if (!isActive) return;
+        if (result.success && result.data) {
+          const school = result.data as { categories?: string[] };
+          setCustomCategories(school.categories ?? []);
+        } else {
+          setCustomCategories([]);
+        }
+      } catch {
+        if (!isActive) return;
+        setCustomCategories([]);
+      }
+    };
+
+    loadCategories();
+    return () => {
+      isActive = false;
+    };
+  }, [adminGasUrl, isAdminDemoMode, schoolCode]);
 
   const currentLocation = useMemo(() => {
     if (!selectedRoomId) return '';
@@ -173,6 +215,7 @@ const InventoryFormPage: React.FC = () => {
     }
   };
 
+
   return (
     <div className="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-6rem)]">
       <div className="flex items-center gap-3 mb-6">
@@ -219,7 +262,7 @@ const InventoryFormPage: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 (복수 선택)</label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORY_OPTIONS.map((cat) => {
+                {allCategories.map((cat) => {
                   const active = selectedCategories.includes(cat);
                   return (
                     <button
@@ -467,6 +510,13 @@ const InventoryFormPage: React.FC = () => {
                   className="hidden"
                   onChange={handleFileSelect}
                 />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -485,8 +535,19 @@ const InventoryFormPage: React.FC = () => {
                     </>
                   )}
                 </button>
-                <span className="text-xs text-gray-400">또는 URL 직접 입력</span>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={isUploading}
+                  className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Upload size={16} className="text-gray-500" />
+                  <span className="text-sm text-gray-600">사진 선택</span>
+                </button>
               </div>
+              <p className="text-xs text-gray-400">
+                촬영 거리나 조명에 따라 파일 크기가 더 커질 수 있어요. 용량이 큰 경우 업로드가 제한될 수 있습니다.
+              </p>
 
               <input
                 type="url"

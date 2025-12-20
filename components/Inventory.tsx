@@ -7,6 +7,7 @@ import { InventoryItem, ItemStatus } from '../types';
 import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw, Upload, Image as ImageIcon, X, ChevronDown, ChevronUp, MapPin, ChevronRight } from 'lucide-react';
 import { CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
 import { apiService } from '../services/api';
+import { adminApiService } from '../services/adminApi';
 
 const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB
 
@@ -43,8 +44,10 @@ const convertGoogleDriveUrl = (url: string): string => {
 const Inventory: React.FC = () => {
   const navigate = useNavigate();
   const { items, isLoading, isInitialized, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
-  const { currentSchool } = useAuth();
+  const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
+  const isAdminDemoMode = !adminGasUrl;
+  const schoolCode = currentSchool?.code || '';
 
   // 단계별 위치 선택 상태
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -63,6 +66,7 @@ const Inventory: React.FC = () => {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; school: string } | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [customCategories, setCustomCategories] = useState<string[]>(() => currentSchool?.categories ?? []);
   const [isSaving, setIsSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [viewingImage, setViewingImage] = useState<string | null>(null); // 이미지 뷰어 모달
@@ -71,6 +75,7 @@ const Inventory: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Filter logic
   const filteredItems = useMemo(() => {
@@ -99,6 +104,44 @@ const Inventory: React.FC = () => {
 
   // 학교 사용자는 자기 학교만, 그 외에는 선택된 학교
   const effectiveSchool = currentSchool?.name || (selectedSchool === '모두' ? DEFAULT_SCHOOL : selectedSchool);
+  const allCategories = useMemo(() => {
+    const merged = [...CATEGORY_OPTIONS, ...customCategories];
+    return Array.from(new Set(merged));
+  }, [customCategories]);
+
+  useEffect(() => {
+    setCustomCategories(currentSchool?.categories ?? []);
+  }, [currentSchool?.code]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!schoolCode) {
+      setCustomCategories([]);
+      return;
+    }
+
+    const loadCategories = async () => {
+      try {
+        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isAdminDemoMode);
+        if (!isActive) return;
+        if (result.success && result.data) {
+          const school = result.data as { categories?: string[] };
+          setCustomCategories(school.categories ?? []);
+        } else {
+          setCustomCategories([]);
+        }
+      } catch {
+        if (!isActive) return;
+        setCustomCategories([]);
+      }
+    };
+
+    loadCategories();
+    return () => {
+      isActive = false;
+    };
+  }, [adminGasUrl, isAdminDemoMode, schoolCode]);
+
 
   const currentLocation = useMemo(() => {
     if (!selectedRoomId) return '';
@@ -202,7 +245,14 @@ const Inventory: React.FC = () => {
   const handleOpenEdit = (item: InventoryItem) => {
     setEditingItem(item);
     setFormData({ ...item });
-    setSelectedCategories(item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : []);
+    const parsedCategories = item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : [];
+    setSelectedCategories(parsedCategories);
+    const missingCategories = parsedCategories.filter(
+      (cat) => !CATEGORY_OPTIONS.includes(cat as (typeof CATEGORY_OPTIONS)[number]) && !customCategories.includes(cat)
+    );
+    if (missingCategories.length > 0) {
+      setCustomCategories((prev) => Array.from(new Set([...prev, ...missingCategories])));
+    }
     setImagePreview(item.imageUrl || '');
     setUploadError('');
     setValidationErrors({});
@@ -317,6 +367,7 @@ const Inventory: React.FC = () => {
       setIsSaving(false);
     }
   };
+
 
   const handleDeleteClick = (item: InventoryItem) => {
     setItemToDelete({ id: item.id, school: item.school });
@@ -630,7 +681,7 @@ const Inventory: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 (복수 선택)</label>
                     <div className="flex flex-wrap gap-2">
-                      {CATEGORY_OPTIONS.map(cat => {
+                      {allCategories.map(cat => {
                         const active = selectedCategories.includes(cat);
                         return (
                           <button
@@ -876,6 +927,13 @@ const Inventory: React.FC = () => {
                     className="hidden"
                     onChange={handleFileSelect}
                   />
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
@@ -894,8 +952,19 @@ const Inventory: React.FC = () => {
                           </>
                         )}
                       </button>
-                      <span className="text-xs text-gray-400">또는 URL 직접 입력</span>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        disabled={isUploading}
+                        className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <Upload size={16} className="text-gray-500" />
+                        <span className="text-sm text-gray-600">사진 선택</span>
+                      </button>
                     </div>
+                    <p className="text-xs text-gray-400">
+                      촬영 거리나 조명에 따라 파일 크기가 더 커질 수 있어요. 용량이 큰 경우 업로드가 제한될 수 있습니다.
+                    </p>
 
                     {/* URL 직접 입력 */}
                     <input
@@ -1013,9 +1082,10 @@ const Inventory: React.FC = () => {
           <div className="relative max-w-4xl max-h-[90vh] w-full">
             <button
               onClick={() => setViewingImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-sm"
+              className="absolute -top-10 right-2 sm:-top-12 sm:right-4 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-sm sm:text-base font-semibold text-gray-900 shadow-lg ring-1 ring-black/10 hover:bg-white"
             >
-              닫기 ✕
+              <X size={16} />
+              <span className="hidden sm:inline">닫기</span>
             </button>
             <img
               src={convertGoogleDriveUrl(viewingImage)}
