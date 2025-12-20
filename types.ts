@@ -63,3 +63,26 @@ export interface AdminLoginResponse {
   success: boolean;
   message?: string;
 }
+
+// 위치 관리 타입
+export interface LocationSlot {
+  id: string;
+  name: string;  // 예: "1칸", "2칸", "A-1"
+}
+
+export interface LocationShelf {
+  id: string;
+  name: string;  // 예: "선반A", "캐비닛1"
+  slots: LocationSlot[];
+}
+
+export interface LocationRoom {
+  id: string;
+  name: string;  // 예: "전산1실", "창고"
+  shelves: LocationShelf[];
+}
+
+export interface LocationData {
+  rooms: LocationRoom[];
+  lastUpdated: string;
+}

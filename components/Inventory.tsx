@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useLocation } from '../context/LocationContext';
 import { InventoryItem, ItemStatus } from '../types';
-import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw, Upload, Image as ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Filter, AlertCircle, RefreshCw, Upload, Image as ImageIcon, X, ChevronDown, ChevronUp, MapPin, ChevronRight } from 'lucide-react';
 import { CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
 import { apiService } from '../services/api';
 
@@ -43,6 +44,17 @@ const Inventory: React.FC = () => {
   const navigate = useNavigate();
   const { items, isLoading, isInitialized, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
   const { currentSchool } = useAuth();
+  const { locationData } = useLocation();
+
+  // 단계별 위치 선택 상태
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [selectedShelfId, setSelectedShelfId] = useState<string>('');
+  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+
+  // 선택된 교실, 선반 데이터
+  const selectedRoom = locationData.rooms.find(r => r.id === selectedRoomId);
+  const selectedShelf = selectedRoom?.shelves.find(s => s.id === selectedShelfId);
 
   // Local UI State
   const [searchTerm, setSearchTerm] = useState('');
@@ -87,6 +99,50 @@ const Inventory: React.FC = () => {
 
   // 학교 사용자는 자기 학교만, 그 외에는 선택된 학교
   const effectiveSchool = currentSchool?.name || (selectedSchool === '모두' ? DEFAULT_SCHOOL : selectedSchool);
+
+  const currentLocation = useMemo(() => {
+    if (!selectedRoomId) return '';
+    const room = locationData.rooms.find(r => r.id === selectedRoomId);
+    if (!room) return '';
+    let locationStr = room.name;
+    if (selectedShelfId) {
+      const shelf = room.shelves.find(s => s.id === selectedShelfId);
+      if (shelf) {
+        locationStr += `/${shelf.name}`;
+        if (selectedSlotId) {
+          const slot = shelf.slots.find(sl => sl.id === selectedSlotId);
+          if (slot) {
+            locationStr += `-${slot.name}`;
+          }
+        }
+      }
+    }
+    return locationStr;
+  }, [selectedRoomId, selectedShelfId, selectedSlotId, locationData]);
+
+  // 위치 선택 시 location 문자열 생성
+  useEffect(() => {
+    // 모달이 열려있지 않으면 무시
+    if (!isModalOpen) return;
+
+    const locationValue = selectedLocations.length > 0 ? selectedLocations.join(', ') : currentLocation;
+    setFormData(prev => ({ ...prev, location: locationValue }));
+    if (locationValue && validationErrors.location) {
+      setValidationErrors(prev => ({ ...prev, location: '' }));
+    }
+  }, [selectedLocations, currentLocation, validationErrors.location, isModalOpen]);
+
+  const handleAddLocation = () => {
+    if (!currentLocation) return;
+    setSelectedLocations(prev => (prev.includes(currentLocation) ? prev : [...prev, currentLocation]));
+    setSelectedRoomId('');
+    setSelectedShelfId('');
+    setSelectedSlotId('');
+  };
+
+  const handleRemoveLocation = (location: string) => {
+    setSelectedLocations(prev => prev.filter(item => item !== location));
+  };
 
   // 이미지 파일 선택 핸들러
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +206,72 @@ const Inventory: React.FC = () => {
     setImagePreview(item.imageUrl || '');
     setUploadError('');
     setValidationErrors({});
+
+    // 기존 위치를 파싱해서 단계별 선택 상태 복원
+    if (item.location) {
+      const locationParts = item.location.split(',').map(part => part.trim()).filter(Boolean);
+      if (locationParts.length > 1) {
+        setSelectedLocations(locationParts);
+        setSelectedRoomId('');
+        setSelectedShelfId('');
+        setSelectedSlotId('');
+        setIsModalOpen(true);
+        return;
+      }
+      const locationStr = locationParts[0];
+      // "교실/선반-칸" 또는 "교실/선반" 또는 "교실" 형태 파싱
+      const parts = locationStr.split('/');
+      const roomName = parts[0];
+      const room = locationData.rooms.find(r => r.name === roomName);
+
+      if (room) {
+        setSelectedLocations([]);
+        setSelectedRoomId(room.id);
+
+        if (parts[1]) {
+          // "선반-칸" 또는 "선반" 형태
+          const shelfPart = parts[1];
+          const shelfSlotMatch = shelfPart.match(/^([^-]+)(?:-(.+))?$/);
+          if (shelfSlotMatch) {
+            const shelfName = shelfSlotMatch[1];
+            const slotName = shelfSlotMatch[2];
+
+            const shelf = room.shelves.find(s => s.name === shelfName);
+            if (shelf) {
+              setSelectedShelfId(shelf.id);
+
+              if (slotName) {
+                const slot = shelf.slots.find(sl => sl.name === slotName);
+                if (slot) {
+                  setSelectedSlotId(slot.id);
+                } else {
+                  setSelectedSlotId('');
+                }
+              } else {
+                setSelectedSlotId('');
+              }
+            } else {
+              setSelectedShelfId('');
+              setSelectedSlotId('');
+            }
+          }
+        } else {
+          setSelectedShelfId('');
+          setSelectedSlotId('');
+        }
+      } else {
+        setSelectedLocations([]);
+        setSelectedRoomId('');
+        setSelectedShelfId('');
+        setSelectedSlotId('');
+      }
+    } else {
+      setSelectedLocations([]);
+      setSelectedRoomId('');
+      setSelectedShelfId('');
+      setSelectedSlotId('');
+    }
+
     setIsModalOpen(true);
   };
 
@@ -537,17 +659,156 @@ const Inventory: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">위치</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="예: 선반 A"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${validationErrors.location ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
-                      value={formData.location}
-                      onChange={e => {
-                        setFormData({ ...formData, location: e.target.value });
-                        if (validationErrors.location) setValidationErrors({ ...validationErrors, location: '' });
-                      }}
-                    />
+                    {locationData.rooms.length > 0 ? (
+                      <div className="space-y-2">
+                        {/* 선택된 위치 표시 */}
+                        {selectedLocations.length > 0 && (
+                          <div className="flex items-start gap-2 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <MapPin size={14} className="text-indigo-600 mt-0.5" />
+                            <div className="flex flex-wrap gap-2 flex-1">
+                              {selectedLocations.map((location) => (
+                                <span
+                                  key={location}
+                                  className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs text-indigo-700 border border-indigo-200"
+                                >
+                                  {location}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveLocation(location)}
+                                    className="text-indigo-500 hover:text-indigo-700"
+                                    aria-label="선택 위치 삭제"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLocations([])}
+                              className="text-xs text-indigo-600 hover:underline whitespace-nowrap"
+                            >
+                              전체 삭제
+                            </button>
+                          </div>
+                        )}
+
+                        {selectedLocations.length === 0 && currentLocation && (
+                          <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <MapPin size={14} className="text-indigo-600" />
+                            <span className="text-sm text-indigo-700 font-medium truncate">{currentLocation}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRoomId('');
+                                setSelectedShelfId('');
+                                setSelectedSlotId('');
+                              }}
+                              className="ml-auto p-1 hover:bg-indigo-100 rounded flex-shrink-0"
+                            >
+                              <X size={14} className="text-indigo-500" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 단계별 선택 UI */}
+                        <div className={`space-y-2 ${validationErrors.location ? 'p-2 border border-red-300 rounded-lg bg-red-50/50' : ''}`}>
+                          {/* 1단계: 교실 선택 */}
+                          <div className="relative">
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white pr-10 text-sm"
+                              value={selectedRoomId}
+                              onChange={(e) => {
+                                setSelectedRoomId(e.target.value);
+                                setSelectedShelfId('');
+                                setSelectedSlotId('');
+                              }}
+                            >
+                              <option value="">교실/장소 선택</option>
+                              {locationData.rooms.map((room) => (
+                                <option key={room.id} value={room.id}>
+                                  {room.name}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          </div>
+
+                          {/* 2단계: 선반 선택 */}
+                          {selectedRoom && selectedRoom.shelves.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                              <div className="relative flex-1">
+                                <select
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white pr-10 text-sm"
+                                  value={selectedShelfId}
+                                  onChange={(e) => {
+                                    setSelectedShelfId(e.target.value);
+                                    setSelectedSlotId('');
+                                  }}
+                                >
+                                  <option value="">선반 선택 (선택사항)</option>
+                                  {selectedRoom.shelves.map((shelf) => (
+                                    <option key={shelf.id} value={shelf.id}>
+                                      {shelf.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 3단계: 칸 선택 */}
+                          {selectedShelf && selectedShelf.slots.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                              <ChevronRight size={16} className="text-gray-400 flex-shrink-0 -ml-1" />
+                              <div className="relative flex-1">
+                                <select
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white pr-10 text-sm"
+                                  value={selectedSlotId}
+                                  onChange={(e) => setSelectedSlotId(e.target.value)}
+                                >
+                                  <option value="">칸 선택 (선택사항)</option>
+                                  {selectedShelf.slots.map((slot) => (
+                                    <option key={slot.id} value={slot.id}>
+                                      {slot.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {currentLocation && (
+                          <button
+                            type="button"
+                            onClick={handleAddLocation}
+                            className="text-xs text-indigo-600 hover:underline"
+                          >
+                            + 현재 위치 추가
+                          </button>
+                        )}
+
+                        <p className="text-xs text-gray-400">
+                          <Link to="/school/locations" className="text-indigo-600 hover:underline">위치 관리</Link>에서 새 위치 추가
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-center">
+                        <MapPin size={20} className="mx-auto mb-1 text-gray-400" />
+                        <p className="text-xs text-gray-600 mb-1">등록된 위치가 없습니다.</p>
+                        <Link
+                          to="/school/locations"
+                          className="text-xs text-indigo-600 hover:underline"
+                        >
+                          위치 먼저 등록하기
+                        </Link>
+                      </div>
+                    )}
                     {validationErrors.location && <p className="text-xs text-red-500 mt-1">{validationErrors.location}</p>}
                   </div>
                 </div>

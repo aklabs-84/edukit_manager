@@ -26,32 +26,112 @@ const Dashboard: React.FC = () => {
     .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
     .slice(0, 5);
 
-  // Location Data
-  const locationData = useMemo(() => {
-    const groups = new Map<string, {
-      location: string;
-      itemCount: number;
-      totalQuantity: number;
-      categories: Set<string>;
-      items: string[];
-    }>();
+  // 위치 문자열 파싱 함수: "전산1/선반A-2칸" -> { room: "전산1", shelf: "선반A", slot: "2칸" }
+  const parseLocation = (location: string) => {
+    const trimmed = location?.trim() || '미지정';
+    const singleLocation = trimmed.split(',')[0]?.trim() || '미지정';
+
+    // "/" 또는 공백으로 분리 시도
+    const parts = singleLocation.split(/[\/\s]+/).filter(Boolean);
+
+    if (parts.length === 1) {
+      // 단일 위치인 경우 (예: "창고")
+      return { room: parts[0], shelf: null, slot: null };
+    }
+
+    // 첫 번째는 교실, 나머지는 선반/칸 정보
+    const room = parts[0];
+    const rest = parts.slice(1).join(' ');
+
+    // "선반A-2칸" 패턴 파싱
+    const shelfMatch = rest.match(/^(선반[A-Za-z가-힣0-9]+)[-\s]?(.*)$/);
+    if (shelfMatch) {
+      return {
+        room,
+        shelf: shelfMatch[1],
+        slot: shelfMatch[2] || null
+      };
+    }
+
+    // 그 외의 경우 전체를 shelf로
+    return { room, shelf: rest || null, slot: null };
+  };
+
+  // 계층적 위치 데이터 구조
+  interface SlotData {
+    name: string;
+    itemCount: number;
+    totalQuantity: number;
+    items: string[];
+  }
+
+  interface ShelfData {
+    name: string;
+    itemCount: number;
+    totalQuantity: number;
+    slots: Map<string, SlotData>;
+  }
+
+  interface RoomData {
+    name: string;
+    itemCount: number;
+    totalQuantity: number;
+    shelves: Map<string, ShelfData>;
+  }
+
+  // Location Data - 계층적 구조로 변환
+  const locationTree = useMemo(() => {
+    const rooms = new Map<string, RoomData>();
 
     filteredItems.forEach(item => {
-      const key = item.location?.trim() || '미지정';
-      if (!groups.has(key)) {
-        groups.set(key, { location: key, itemCount: 0, totalQuantity: 0, categories: new Set(), items: [] });
+      const { room, shelf, slot } = parseLocation(item.location);
+      const quantity = Number(item.quantity) || 0;
+
+      // Room 레벨
+      if (!rooms.has(room)) {
+        rooms.set(room, { name: room, itemCount: 0, totalQuantity: 0, shelves: new Map() });
       }
-      const group = groups.get(key)!;
-      group.itemCount += 1;
-      group.totalQuantity += Number(item.quantity) || 0;
-      item.category.split(',').map(c => c.trim()).filter(Boolean).forEach(c => group.categories.add(c));
-      if (group.items.length < 4) {
-        group.items.push(item.name);
+      const roomData = rooms.get(room)!;
+      roomData.itemCount += 1;
+      roomData.totalQuantity += quantity;
+
+      // Shelf 레벨
+      const shelfKey = shelf || '기타';
+      if (!roomData.shelves.has(shelfKey)) {
+        roomData.shelves.set(shelfKey, { name: shelfKey, itemCount: 0, totalQuantity: 0, slots: new Map() });
+      }
+      const shelfData = roomData.shelves.get(shelfKey)!;
+      shelfData.itemCount += 1;
+      shelfData.totalQuantity += quantity;
+
+      // Slot 레벨
+      const slotKey = slot || '전체';
+      if (!shelfData.slots.has(slotKey)) {
+        shelfData.slots.set(slotKey, { name: slotKey, itemCount: 0, totalQuantity: 0, items: [] });
+      }
+      const slotData = shelfData.slots.get(slotKey)!;
+      slotData.itemCount += 1;
+      slotData.totalQuantity += quantity;
+      if (slotData.items.length < 3) {
+        slotData.items.push(item.name);
       }
     });
 
-    return Array.from(groups.values()).sort((a, b) => b.totalQuantity - a.totalQuantity);
+    // 정렬해서 배열로 변환
+    return Array.from(rooms.values())
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .map(room => ({
+        ...room,
+        shelves: Array.from(room.shelves.values())
+          .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+          .map(shelf => ({
+            ...shelf,
+            slots: Array.from(shelf.slots.values())
+              .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+          }))
+      }));
   }, [filteredItems]);
+
 
   // Chart Data: Quantity by Category
   const categoryData = filteredItems.reduce((acc, item) => {
@@ -138,75 +218,125 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Location Overview */}
+      {/* Location Overview - 계층 트리 구조 */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-start justify-between mb-4 gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-800">위치별 교구</h2>
-            <p className="text-sm text-gray-500">보관 위치마다 어떤 교구가 있는지 한눈에 확인하세요.</p>
+            <p className="text-sm text-gray-500">교실 → 선반 → 칸 순으로 정리된 교구 현황</p>
           </div>
           <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 whitespace-nowrap">
-            총 {locationData.length}곳
+            {locationTree.length}개 교실
           </span>
         </div>
-        {locationData.length === 0 ? (
+        {locationTree.length === 0 ? (
           <p className="text-gray-400 text-center py-6">등록된 교구가 없습니다.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {locationData.map((loc) => {
-              const expanded = !!expandedLocations[loc.location];
+          <div className="space-y-3">
+            {locationTree.map((room) => {
+              const roomExpanded = !!expandedLocations[`room:${room.name}`];
               return (
                 <div
-                  key={loc.location}
-                  className="border border-gray-100 rounded-xl p-4 hover:border-indigo-100 hover:shadow-sm transition-colors bg-gray-50/60"
+                  key={room.name}
+                  className="border border-gray-200 rounded-xl overflow-hidden"
                 >
+                  {/* 교실 레벨 */}
                   <button
                     type="button"
-                    onClick={() => toggleLocation(loc.location)}
-                    className="w-full text-left"
+                    onClick={() => toggleLocation(`room:${room.name}`)}
+                    className="w-full text-left bg-gradient-to-r from-indigo-50 to-white p-4 hover:from-indigo-100 transition-colors"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-sm text-gray-500">위치</p>
-                        <h3 className="text-lg font-semibold text-gray-900">{loc.location}</h3>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">교구 수</p>
-                          <p className="font-bold text-indigo-600">{loc.itemCount}개</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                          <span className="text-indigo-600 font-bold text-sm">
+                            {room.name.replace(/[^0-9]/g, '') || room.name.charAt(0)}
+                          </span>
                         </div>
-                        {expanded ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                          <p className="text-xs text-gray-500">
+                            {room.shelves.length}개 선반 · {room.itemCount}개 교구
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-indigo-600">
+                          총 {room.totalQuantity}개
+                        </span>
+                        {roomExpanded ? (
+                          <ChevronUp size={20} className="text-gray-400" />
+                        ) : (
+                          <ChevronDown size={20} className="text-gray-400" />
+                        )}
                       </div>
                     </div>
                   </button>
 
-                  {expanded && (
-                    <div className="mt-3 space-y-3">
-                      <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>총 수량</span>
-                        <span className="font-semibold text-gray-900">{loc.totalQuantity}</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">주요 교구</p>
-                        <div className="text-sm text-gray-800">
-                          {loc.items.length > 0 ? loc.items.join(', ') : '-'}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Array.from(loc.categories).slice(0, 4).map((cat) => (
-                          <span
-                            key={cat}
-                            className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700"
+                  {/* 선반 레벨 */}
+                  {roomExpanded && (
+                    <div className="bg-gray-50/50 p-3 space-y-2">
+                      {room.shelves.map((shelf) => {
+                        const shelfExpanded = !!expandedLocations[`shelf:${room.name}:${shelf.name}`];
+                        return (
+                          <div
+                            key={shelf.name}
+                            className="bg-white rounded-lg border border-gray-100 overflow-hidden"
                           >
-                            {cat}
-                          </span>
-                        ))}
-                        {loc.categories.size > 4 && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500">
-                            +{loc.categories.size - 4}
-                          </span>
-                        )}
-                      </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleLocation(`shelf:${room.name}:${shelf.name}`)}
+                              className="w-full text-left p-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1.5 h-6 rounded-full bg-indigo-300" />
+                                  <span className="font-medium text-gray-800">{shelf.name}</span>
+                                  <span className="text-xs text-gray-400">
+                                    ({shelf.slots.length}칸)
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                                    {shelf.itemCount}개 교구
+                                  </span>
+                                  {shelfExpanded ? (
+                                    <ChevronUp size={16} className="text-gray-400" />
+                                  ) : (
+                                    <ChevronDown size={16} className="text-gray-400" />
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+
+                            {/* 칸 레벨 */}
+                            {shelfExpanded && (
+                              <div className="px-3 pb-3">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                  {shelf.slots.map((slot) => (
+                                    <div
+                                      key={slot.name}
+                                      className="p-2 rounded-md bg-gray-50 border border-gray-100"
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-xs font-medium text-gray-700">
+                                          {slot.name}
+                                        </span>
+                                        <span className="text-xs text-indigo-600 font-semibold">
+                                          {slot.itemCount}개
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 truncate" title={slot.items.join(', ')}>
+                                        {slot.items.length > 0 ? slot.items.join(', ') : '-'}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

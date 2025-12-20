@@ -2,10 +2,12 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LocationProvider } from './context/LocationContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
 import InventoryFormPage from './components/InventoryFormPage';
+import LocationManager from './components/LocationManager';
 import HowTo from './components/HowTo';
 import StartPage from './components/StartPage';
 import AdminLogin from './components/AdminLogin';
@@ -46,6 +48,7 @@ const SchoolRoutes: React.FC = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/new" element={<InventoryFormPage />} />
+        <Route path="locations" element={<LocationManager />} />
         <Route path="guide" element={<HowTo />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
@@ -109,9 +112,11 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <AppProvider>
-        <HashRouter>
-          <AppRoutes />
-        </HashRouter>
+        <LocationProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </LocationProvider>
       </AppProvider>
     </AuthProvider>
   );

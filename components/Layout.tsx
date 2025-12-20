@@ -12,6 +12,8 @@ import {
   School,
   ChevronLeft,
   ChevronRight,
+  MapPin,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,11 +26,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const { currentSchool, logout, isAdmin } = useAuth();
+  const adminTarget = isAdmin ? '/admin' : '/admin/login';
 
   const navItems = [
     { to: '/school/dashboard', label: '대시보드', icon: LayoutDashboard },
     { to: '/school/inventory', label: '재고 관리', icon: Package },
+    { to: '/school/locations', label: '위치 관리', icon: MapPin },
     { to: '/school/guide', label: '사용 방법', icon: BookOpen },
+    { to: adminTarget, label: '관리자 페이지', icon: Shield },
   ];
 
   const handleLogout = () => {
