@@ -948,7 +948,7 @@ const Inventory: React.FC = () => {
                         ) : (
                           <>
                             <Upload size={16} className="text-gray-500" />
-                            <span className="text-sm text-gray-600">파일 선택</span>
+                            <span className="text-sm text-gray-600">사진 촬영</span>
                           </>
                         )}
                       </button>

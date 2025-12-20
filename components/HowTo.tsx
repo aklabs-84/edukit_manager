@@ -33,6 +33,7 @@ const HowTo: React.FC = () => {
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
             <li>현재 로그인한 학교로 자동 지정되니 <span className="font-semibold">학교 필드는 수정할 필요가 없습니다.</span></li>
             <li>카테고리를 여러 개 눌러 선택하면 필터링과 검색이 편해집니다.</li>
+            <li>학교별 카테고리는 왼쪽 메뉴 <span className="font-semibold">“카테고리 추가”</span>에서 등록한 뒤, 교구 입력 화면에서 선택합니다.</li>
             <li>수량은 숫자만 입력하며, 상태(재고 있음/부족/품절)는 수량에 따라 자동 표시됩니다.</li>
             <li>이미지 링크가 없을 때는 비워두면 “이미지 보기” 버튼이 숨겨집니다.</li>
           </ul>
