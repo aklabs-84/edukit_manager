@@ -49,6 +49,7 @@ const SchoolRoutes: React.FC = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/new" element={<InventoryFormPage />} />
+        <Route path="inventory/:id/edit" element={<InventoryFormPage />} />
         <Route path="categories" element={<CategoryManager />} />
         <Route path="locations" element={<LocationManager />} />
         <Route path="guide" element={<HowTo />} />

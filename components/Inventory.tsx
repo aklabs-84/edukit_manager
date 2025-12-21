@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation as useRouterLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
@@ -43,6 +43,7 @@ const convertGoogleDriveUrl = (url: string): string => {
 
 const Inventory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useRouterLocation();
   const { items, isLoading, isInitialized, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
   const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
@@ -60,7 +61,8 @@ const Inventory: React.FC = () => {
   const selectedShelf = selectedRoom?.shelves.find(s => s.id === selectedShelfId);
 
   // Local UI State
-  const [searchTerm, setSearchTerm] = useState('');
+  const initialSearchTerm = new URLSearchParams(location.search).get('q') ?? '';
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -90,6 +92,11 @@ const Inventory: React.FC = () => {
       (item.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [items, searchTerm]);
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get('q') ?? '';
+    setSearchTerm(q);
+  }, [location.search]);
 
   // Form State
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
@@ -243,86 +250,7 @@ const Inventory: React.FC = () => {
   };
 
   const handleOpenEdit = (item: InventoryItem) => {
-    setEditingItem(item);
-    setFormData({ ...item });
-    const parsedCategories = item.category ? item.category.split(',').map(c => c.trim()).filter(Boolean) : [];
-    setSelectedCategories(parsedCategories);
-    const missingCategories = parsedCategories.filter(
-      (cat) => !CATEGORY_OPTIONS.includes(cat as (typeof CATEGORY_OPTIONS)[number]) && !customCategories.includes(cat)
-    );
-    if (missingCategories.length > 0) {
-      setCustomCategories((prev) => Array.from(new Set([...prev, ...missingCategories])));
-    }
-    setImagePreview(item.imageUrl || '');
-    setUploadError('');
-    setValidationErrors({});
-
-    // 기존 위치를 파싱해서 단계별 선택 상태 복원
-    if (item.location) {
-      const locationParts = item.location.split(',').map(part => part.trim()).filter(Boolean);
-      if (locationParts.length > 1) {
-        setSelectedLocations(locationParts);
-        setSelectedRoomId('');
-        setSelectedShelfId('');
-        setSelectedSlotId('');
-        setIsModalOpen(true);
-        return;
-      }
-      const locationStr = locationParts[0];
-      // "교실/선반-칸" 또는 "교실/선반" 또는 "교실" 형태 파싱
-      const parts = locationStr.split('/');
-      const roomName = parts[0];
-      const room = locationData.rooms.find(r => r.name === roomName);
-
-      if (room) {
-        setSelectedLocations([]);
-        setSelectedRoomId(room.id);
-
-        if (parts[1]) {
-          // "선반-칸" 또는 "선반" 형태
-          const shelfPart = parts[1];
-          const shelfSlotMatch = shelfPart.match(/^([^-]+)(?:-(.+))?$/);
-          if (shelfSlotMatch) {
-            const shelfName = shelfSlotMatch[1];
-            const slotName = shelfSlotMatch[2];
-
-            const shelf = room.shelves.find(s => s.name === shelfName);
-            if (shelf) {
-              setSelectedShelfId(shelf.id);
-
-              if (slotName) {
-                const slot = shelf.slots.find(sl => sl.name === slotName);
-                if (slot) {
-                  setSelectedSlotId(slot.id);
-                } else {
-                  setSelectedSlotId('');
-                }
-              } else {
-                setSelectedSlotId('');
-              }
-            } else {
-              setSelectedShelfId('');
-              setSelectedSlotId('');
-            }
-          }
-        } else {
-          setSelectedShelfId('');
-          setSelectedSlotId('');
-        }
-      } else {
-        setSelectedLocations([]);
-        setSelectedRoomId('');
-        setSelectedShelfId('');
-        setSelectedSlotId('');
-      }
-    } else {
-      setSelectedLocations([]);
-      setSelectedRoomId('');
-      setSelectedShelfId('');
-      setSelectedSlotId('');
-    }
-
-    setIsModalOpen(true);
+    navigate(`/school/inventory/${item.id}/edit`, { state: { school: item.school } });
   };
 
   const validateForm = () => {

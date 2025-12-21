@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link, useParams, useLocation as useRouterLocation } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Upload, X, ChevronDown, MapPin, ChevronRight } from 'lucide-react';
-import { CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
+import { ALL_SCHOOLS_KEY, CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
 import { InventoryItem, ItemStatus } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,10 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const InventoryFormPage: React.FC = () => {
   const navigate = useNavigate();
-  const { addItem, isDemoMode, selectedSchool, gasUrl } = useAppContext();
+  const routerLocation = useRouterLocation();
+  const { id: editingId } = useParams<{ id: string }>();
+  const isEditMode = Boolean(editingId);
+  const { addItem, updateItem, isDemoMode, selectedSchool, gasUrl } = useAppContext();
   const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
   const isAdminDemoMode = !adminGasUrl;
@@ -45,6 +48,14 @@ const InventoryFormPage: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingItem, setIsLoadingItem] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [loadedLocation, setLoadedLocation] = useState('');
+  const [hasAppliedLocation, setHasAppliedLocation] = useState(false);
+  const initialEditSchoolRef = useRef<string | undefined>(
+    (routerLocation.state as { school?: string } | null)?.school
+  );
+  const lastLoadedIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +101,139 @@ const InventoryFormPage: React.FC = () => {
       isActive = false;
     };
   }, [adminGasUrl, isAdminDemoMode, schoolCode]);
+
+  const applyLocationSelection = useCallback((locationValue: string) => {
+    if (!locationValue) {
+      setSelectedLocations([]);
+      setSelectedRoomId('');
+      setSelectedShelfId('');
+      setSelectedSlotId('');
+      return;
+    }
+
+    const locationParts = locationValue.split(',').map(part => part.trim()).filter(Boolean);
+    if (locationParts.length > 1) {
+      setSelectedLocations(locationParts);
+      setSelectedRoomId('');
+      setSelectedShelfId('');
+      setSelectedSlotId('');
+      return;
+    }
+
+    const locationStr = locationParts[0];
+    const parts = locationStr.split('/');
+    const roomName = parts[0];
+    const room = locationData.rooms.find(r => r.name === roomName);
+
+    if (!room) {
+      setSelectedLocations([]);
+      setSelectedRoomId('');
+      setSelectedShelfId('');
+      setSelectedSlotId('');
+      return;
+    }
+
+    setSelectedLocations([]);
+    setSelectedRoomId(room.id);
+
+    if (parts[1]) {
+      const shelfPart = parts[1];
+      const shelfSlotMatch = shelfPart.match(/^([^-]+)(?:-(.+))?$/);
+      if (shelfSlotMatch) {
+        const shelfName = shelfSlotMatch[1];
+        const slotName = shelfSlotMatch[2];
+        const shelf = room.shelves.find(s => s.name === shelfName);
+        if (shelf) {
+          setSelectedShelfId(shelf.id);
+          if (slotName) {
+            const slot = shelf.slots.find(sl => sl.name === slotName);
+            setSelectedSlotId(slot ? slot.id : '');
+          } else {
+            setSelectedSlotId('');
+          }
+        } else {
+          setSelectedShelfId('');
+          setSelectedSlotId('');
+        }
+      }
+    } else {
+      setSelectedShelfId('');
+      setSelectedSlotId('');
+    }
+  }, [locationData.rooms]);
+
+  useEffect(() => {
+    if (!isEditMode || !editingId) return;
+    if (lastLoadedIdRef.current === editingId) return;
+    let isActive = true;
+    const loadItem = async () => {
+      setIsLoadingItem(true);
+      setLoadError('');
+      setHasAppliedLocation(false);
+
+      try {
+        const targetSchool = initialEditSchoolRef.current || effectiveSchool || selectedSchool;
+        const fetchSchool = targetSchool === '모두' ? ALL_SCHOOLS_KEY : targetSchool;
+        const data = await apiService.fetchItems(gasUrl, isDemoMode, fetchSchool);
+        if (!isActive) return;
+        const found = data.find(item => item.id === editingId);
+        if (!found) {
+          setLoadError('해당 교구를 찾을 수 없습니다.');
+          return;
+        }
+
+        setFormData({ ...found });
+        setImagePreview(found.imageUrl || '');
+        setUploadError('');
+        setValidationErrors({});
+
+        const parsedCategories = found.category
+          ? found.category.split(',').map(c => c.trim()).filter(Boolean)
+          : [];
+        setSelectedCategories(parsedCategories);
+
+        setCustomCategories(prev => {
+          const missingCategories = parsedCategories.filter(
+            (cat) => !CATEGORY_OPTIONS.includes(cat as (typeof CATEGORY_OPTIONS)[number]) && !prev.includes(cat)
+          );
+          if (missingCategories.length === 0) return prev;
+          return Array.from(new Set([...prev, ...missingCategories]));
+        });
+
+        setLoadedLocation(found.location || '');
+        applyLocationSelection(found.location || '');
+        lastLoadedIdRef.current = editingId;
+      } catch {
+        if (!isActive) return;
+        setLoadError('교구 정보를 불러오는데 실패했습니다.');
+      } finally {
+        if (isActive) {
+          setIsLoadingItem(false);
+        }
+      }
+    };
+
+    loadItem();
+    return () => {
+      isActive = false;
+    };
+  }, [
+    applyLocationSelection,
+    editingId,
+    effectiveSchool,
+    gasUrl,
+    isDemoMode,
+    isEditMode,
+    selectedSchool
+  ]);
+
+  useEffect(() => {
+    if (!isEditMode || !loadedLocation || hasAppliedLocation) return;
+    applyLocationSelection(loadedLocation);
+    if (locationData.rooms.length > 0 || loadedLocation.includes(',')) {
+      setHasAppliedLocation(true);
+    }
+  }, [applyLocationSelection, hasAppliedLocation, isEditMode, loadedLocation, locationData.rooms.length]);
 
   const currentLocation = useMemo(() => {
     if (!selectedRoomId) return '';
@@ -200,12 +344,16 @@ const InventoryFormPage: React.FC = () => {
       ...formData,
       category: selectedCategories.join(', '),
       imageUrl: formData.imageUrl || '',
-      school: effectiveSchool,
+      school: formData.school || effectiveSchool,
     };
 
     try {
       setIsSaving(true);
-      await addItem(payload as InventoryItem);
+      if (isEditMode && editingId) {
+        await updateItem({ ...(payload as InventoryItem), id: editingId });
+      } else {
+        await addItem(payload as InventoryItem);
+      }
       navigate('/school/inventory');
     } catch (err) {
       setUploadError('저장에 실패했습니다. 다시 시도해주세요.');
@@ -214,6 +362,32 @@ const InventoryFormPage: React.FC = () => {
     }
   };
 
+
+  if (isEditMode && isLoadingItem) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-600">
+          <span className="w-5 h-5 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></span>
+          <span className="text-sm">교구 정보를 불러오는 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEditMode && loadError) {
+    return (
+      <div className="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-6rem)] flex flex-col items-center justify-center gap-4 text-center">
+        <p className="text-sm text-red-500">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/school/inventory')}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+        >
+          목록으로 돌아가기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] md:min-h-[calc(100vh-6rem)]">
@@ -226,7 +400,7 @@ const InventoryFormPage: React.FC = () => {
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">새 교구 추가</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? '교구 수정' : '새 교구 추가'}</h1>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6">

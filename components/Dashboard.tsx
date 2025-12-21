@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -6,6 +7,7 @@ import { CheckCircle, PackageSearch, Clock, RefreshCw, ChevronDown, ChevronUp } 
 import { ItemStatus } from '../types';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { allItems, items, isLoading, isInitialized, refreshItems, isDemoMode, selectedSchool } = useAppContext();
   const { currentSchool, isAdmin } = useAuth();
   const [expandedLocations, setExpandedLocations] = useState<Record<string, boolean>>({});
@@ -140,12 +142,13 @@ const Dashboard: React.FC = () => {
       const existing = acc.find(x => x.name === cat);
       if (existing) {
         existing.value += Number(item.quantity);
+        existing.count += 1;
       } else {
-        acc.push({ name: cat, value: Number(item.quantity) });
+        acc.push({ name: cat, value: Number(item.quantity), count: 1 });
       }
     });
     return acc;
-  }, [] as { name: string; value: number }[]);
+  }, [] as { name: string; value: number; count: number }[]);
 
   const StatCard = ({ title, value, icon: Icon, color, subText }: any) => (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between">
@@ -161,6 +164,12 @@ const Dashboard: React.FC = () => {
   );
 
   const displaySchoolName = currentSchool?.name || selectedSchool;
+
+  const handleCategoryClick = (category: string) => {
+    const trimmed = category.trim();
+    if (!trimmed) return;
+    navigate(`/school/inventory?q=${encodeURIComponent(trimmed)}`);
+  };
 
   const toggleLocation = (key: string) => {
     setExpandedLocations(prev => ({ ...prev, [key]: !prev[key] }));
@@ -356,12 +365,27 @@ const Dashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      const entry = payload[0]?.payload as { value: number; count: number } | undefined;
+                      return (
+                        <div className="bg-white rounded-lg border border-gray-100 shadow-md px-3 py-2">
+                          <p className="text-sm font-semibold text-gray-900">{label}</p>
+                          <p className="text-xs text-gray-500 mt-1">합계: {payload[0]?.value ?? 0}</p>
+                          <p className="text-xs text-gray-500">항목: {entry?.count ?? 0}</p>
+                        </div>
+                      );
+                    }}
                   />
                   <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]}>
                     {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#6366f1' : '#818cf8'} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={index % 2 === 0 ? '#6366f1' : '#818cf8'}
+                        cursor="pointer"
+                        onClick={() => handleCategoryClick(entry.name)}
+                      />
                     ))}
                   </Bar>
                 </BarChart>

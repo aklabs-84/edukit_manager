@@ -6,7 +6,8 @@ import {
   Menu,
   X,
   Box,
-  ExternalLink,
+  Home,
+  MessageSquare,
   BookOpen,
   LogOut,
   School,
@@ -125,7 +126,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ${isCollapsed ? 'justify-center px-2' : 'px-4'}
               `}
             >
-              <ExternalLink size={20} />
+              <Home size={20} />
               {!isCollapsed && '아크랩스 홈페이지'}
               {isCollapsed && <span className="sr-only">아크랩스 홈페이지</span>}
             </a>
@@ -139,7 +140,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ${isCollapsed ? 'justify-center px-2' : 'px-4'}
               `}
             >
-              <ExternalLink size={20} />
+              <MessageSquare size={20} />
               {!isCollapsed && '수업 문의하기'}
               {isCollapsed && <span className="sr-only">수업 문의하기</span>}
             </a>
