@@ -9,7 +9,7 @@ import { useLocation } from '../context/LocationContext';
 import { apiService } from '../services/api';
 import { adminApiService } from '../services/adminApi';
 
-const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const InventoryFormPage: React.FC = () => {
   const navigate = useNavigate();
@@ -142,7 +142,6 @@ const InventoryFormPage: React.FC = () => {
     } else if (formData.quantity < 0) {
       errors.quantity = '수량은 0 이상이어야 합니다.';
     }
-    if (!formData.imageUrl?.trim()) errors.image = '이미지를 등록하세요.';
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -154,7 +153,7 @@ const InventoryFormPage: React.FC = () => {
     setUploadError('');
 
     if (file.size > MAX_IMAGE_SIZE) {
-      setUploadError(`이미지 크기가 너무 큽니다. (최대 3MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      setUploadError(`이미지 크기가 너무 큽니다. (최대 5MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       return;
     }
 
@@ -598,7 +597,7 @@ const InventoryFormPage: React.FC = () => {
                 </div>
               )}
             </div>
-            <p className="text-xs text-gray-400 mt-2">파일을 직접 업로드하거나 구글 드라이브 URL을 입력하세요. (최대 3MB)</p>
+              <p className="text-xs text-gray-400 mt-2">파일을 직접 업로드하거나 구글 드라이브 URL을 입력하세요. (최대 5MB)</p>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

@@ -9,7 +9,7 @@ import { CATEGORY_OPTIONS, DEFAULT_SCHOOL } from '../constants';
 import { apiService } from '../services/api';
 import { adminApiService } from '../services/adminApi';
 
-const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // 구글 드라이브 URL을 img 태그에서 표시 가능한 형식으로 변환
 const convertGoogleDriveUrl = (url: string): string => {
@@ -196,7 +196,7 @@ const Inventory: React.FC = () => {
 
     // 파일 크기 체크
     if (file.size > MAX_IMAGE_SIZE) {
-      setUploadError(`이미지 크기가 너무 큽니다. (최대 3MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+      setUploadError(`이미지 크기가 너무 큽니다. (최대 5MB, 현재 ${(file.size / 1024 / 1024).toFixed(1)}MB)`);
       return;
     }
 
@@ -335,7 +335,6 @@ const Inventory: React.FC = () => {
     } else if (formData.quantity < 0) {
       errors.quantity = '수량은 0 이상이어야 합니다.';
     }
-    if (!formData.imageUrl?.trim()) errors.image = '이미지를 등록하세요.';
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -1019,7 +1018,7 @@ const Inventory: React.FC = () => {
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-2">
-                    파일을 직접 업로드하거나 구글 드라이브 URL을 입력하세요. (최대 3MB)
+                    파일을 직접 업로드하거나 구글 드라이브 URL을 입력하세요. (최대 5MB)
                   </p>
                 </div>
               </div>

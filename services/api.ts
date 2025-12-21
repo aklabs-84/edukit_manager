@@ -4,7 +4,7 @@ import { DEFAULT_SCHOOLS, DEFAULT_SCHOOL, ALL_SCHOOLS_KEY } from '../constants';
 
 // Helper to simulate network delay for mock mode (kept minimal for faster UX)
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const MAX_IMAGE_BASE64_SIZE = 1_200_000; // ~1.2MB
+const MAX_IMAGE_BASE64_SIZE = 7_000_000; // ~5MB binary payload in base64
 
 const demoKey = (school: string) => `demo_items_${school}`;
 
