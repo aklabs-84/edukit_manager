@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, Plus, ClipboardList, Edit2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { Info, Plus, ClipboardList, Edit2, RefreshCw, Search, ShieldCheck, MapPin, Tags } from 'lucide-react';
 
 const HowTo: React.FC = () => {
   return (
@@ -58,6 +58,21 @@ const HowTo: React.FC = () => {
             <li>상단 검색창에서 교구명, 카테고리, 위치, 비고로 빠르게 찾을 수 있습니다.</li>
             <li>카테고리를 여러 개 선택하면 해당 태그가 모두 적용된 교구만 표시됩니다.</li>
             <li><RefreshCw size={14} className="inline-block align-middle" /> 새로고침 버튼으로 최신 재고를 다시 불러옵니다.</li>
+          </ul>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-3">
+          <div className="flex items-center gap-2 text-indigo-600 font-semibold">
+            <MapPin size={18} /> 5) 위치·카테고리 등록
+          </div>
+          <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
+            <li>왼쪽 메뉴 <span className="font-semibold">“위치 관리”</span>에서 교실 → 선반 → 칸을 순서대로 추가합니다.</li>
+            <li>위치가 등록되면 교구 입력 화면에서 드롭다운으로 빠르게 선택할 수 있습니다.</li>
+            <li className="flex items-start gap-2">
+              <Tags size={14} className="mt-0.5 text-indigo-500" />
+              <span><span className="font-semibold">“카테고리 추가”</span>에서 학교별 카테고리를 등록하고, 교구 입력 시 복수 선택할 수 있습니다.</span>
+            </li>
+            <li>위치와 카테고리를 잘 정리해두면 대시보드에서 교실/선반별로 보기 쉬워집니다.</li>
           </ul>
         </div>
       </div>
