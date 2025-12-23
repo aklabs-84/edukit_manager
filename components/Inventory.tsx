@@ -61,7 +61,11 @@ const Inventory: React.FC = () => {
   const selectedShelf = selectedRoom?.shelves.find(s => s.id === selectedShelfId);
 
   // Local UI State
-  const initialSearchTerm = new URLSearchParams(location.search).get('q') ?? '';
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const initialSearchTerm = queryParams.get('q') ?? '';
+  const categoryFilter = queryParams.get('category') ?? '';
+  const locationFilter = queryParams.get('location') ?? '';
+  const nameFilter = queryParams.get('name') ?? '';
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -79,19 +83,41 @@ const Inventory: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  const normalizeLocationToken = (value: string) =>
+    value.toLowerCase().replace(/\s+/g, '').replace(/[\/-]/g, '');
+
   // Filter logic
   const filteredItems = useMemo(() => {
     const byLatest = [...items].sort(
       (a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
     );
 
-    return byLatest.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [items, searchTerm]);
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedCategory = categoryFilter.trim().toLowerCase();
+    const normalizedLocation = locationFilter.trim().toLowerCase();
+    const normalizedName = nameFilter.trim().toLowerCase();
+    const normalizedLocationToken = normalizeLocationToken(normalizedLocation);
+
+    return byLatest.filter(item => {
+      const name = item.name.toLowerCase();
+      const category = item.category.toLowerCase();
+      const locationValue = item.location.toLowerCase();
+      const locationValueToken = normalizeLocationToken(locationValue);
+
+      const matchesSearch = !normalizedSearch ||
+        name.includes(normalizedSearch) ||
+        category.includes(normalizedSearch) ||
+        locationValue.includes(normalizedSearch);
+
+      const matchesCategory = !normalizedCategory || category.includes(normalizedCategory);
+      const matchesLocation = !normalizedLocation ||
+        locationValue.includes(normalizedLocation) ||
+        (!!normalizedLocationToken && locationValueToken.includes(normalizedLocationToken));
+      const matchesName = !normalizedName || name.includes(normalizedName);
+
+      return matchesSearch && matchesCategory && matchesLocation && matchesName;
+    });
+  }, [items, searchTerm, categoryFilter, locationFilter, nameFilter]);
 
   useEffect(() => {
     const q = new URLSearchParams(location.search).get('q') ?? '';

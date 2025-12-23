@@ -63,21 +63,21 @@ const Dashboard: React.FC = () => {
   interface SlotData {
     name: string;
     itemCount: number;
-    totalQuantity: number;
-    items: string[];
+    categorySet: Set<string>;
+    items: Set<string>;
   }
 
   interface ShelfData {
     name: string;
     itemCount: number;
-    totalQuantity: number;
+    categorySet: Set<string>;
     slots: Map<string, SlotData>;
   }
 
   interface RoomData {
     name: string;
     itemCount: number;
-    totalQuantity: number;
+    categorySet: Set<string>;
     shelves: Map<string, ShelfData>;
   }
 
@@ -85,37 +85,39 @@ const Dashboard: React.FC = () => {
   const locationTree = useMemo(() => {
     const rooms = new Map<string, RoomData>();
 
+    const parseCategories = (value: string) => value.split(',').map(c => c.trim()).filter(Boolean);
+
     filteredItems.forEach(item => {
       const { room, shelf, slot } = parseLocation(item.location);
-      const quantity = Number(item.quantity) || 0;
+      const categories = parseCategories(item.category);
 
       // Room 레벨
       if (!rooms.has(room)) {
-        rooms.set(room, { name: room, itemCount: 0, totalQuantity: 0, shelves: new Map() });
+        rooms.set(room, { name: room, itemCount: 0, categorySet: new Set(), shelves: new Map() });
       }
       const roomData = rooms.get(room)!;
       roomData.itemCount += 1;
-      roomData.totalQuantity += quantity;
+      categories.forEach(category => roomData.categorySet.add(category));
 
       // Shelf 레벨
       const shelfKey = shelf || '기타';
       if (!roomData.shelves.has(shelfKey)) {
-        roomData.shelves.set(shelfKey, { name: shelfKey, itemCount: 0, totalQuantity: 0, slots: new Map() });
+        roomData.shelves.set(shelfKey, { name: shelfKey, itemCount: 0, categorySet: new Set(), slots: new Map() });
       }
       const shelfData = roomData.shelves.get(shelfKey)!;
       shelfData.itemCount += 1;
-      shelfData.totalQuantity += quantity;
+      categories.forEach(category => shelfData.categorySet.add(category));
 
       // Slot 레벨
       const slotKey = slot || '전체';
       if (!shelfData.slots.has(slotKey)) {
-        shelfData.slots.set(slotKey, { name: slotKey, itemCount: 0, totalQuantity: 0, items: [] });
+        shelfData.slots.set(slotKey, { name: slotKey, itemCount: 0, categorySet: new Set(), items: new Set() });
       }
       const slotData = shelfData.slots.get(slotKey)!;
       slotData.itemCount += 1;
-      slotData.totalQuantity += quantity;
-      if (slotData.items.length < 3) {
-        slotData.items.push(item.name);
+      categories.forEach(category => slotData.categorySet.add(category));
+      if (item.name?.trim()) {
+        slotData.items.add(item.name.trim());
       }
     });
 
@@ -124,12 +126,19 @@ const Dashboard: React.FC = () => {
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
       .map(room => ({
         ...room,
+        categoryCount: room.categorySet.size,
         shelves: Array.from(room.shelves.values())
           .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
           .map(shelf => ({
             ...shelf,
+            categoryCount: shelf.categorySet.size,
             slots: Array.from(shelf.slots.values())
               .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+              .map(slot => ({
+                ...slot,
+                categoryCount: slot.categorySet.size,
+                items: Array.from(slot.items.values()).sort((a, b) => a.localeCompare(b, 'ko'))
+              }))
           }))
       }));
   }, [filteredItems]);
@@ -169,6 +178,18 @@ const Dashboard: React.FC = () => {
     const trimmed = category.trim();
     if (!trimmed) return;
     navigate(`/school/inventory?q=${encodeURIComponent(trimmed)}`);
+  };
+
+  const handleLocationItemClick = (itemName: string, location: string) => {
+    const trimmed = itemName.trim();
+    if (!trimmed) return;
+    const params = new URLSearchParams();
+    params.set('q', trimmed);
+    params.set('name', trimmed);
+    if (location) {
+      params.set('location', location);
+    }
+    navigate(`/school/inventory?${params.toString()}`);
   };
 
   const toggleLocation = (key: string) => {
@@ -265,13 +286,13 @@ const Dashboard: React.FC = () => {
                         <div>
                           <h3 className="font-semibold text-gray-900">{room.name}</h3>
                           <p className="text-xs text-gray-500">
-                            {room.shelves.length}개 선반 · {room.itemCount}개 교구
+                            {room.shelves.length}개 선반 · {room.categoryCount}종류 교구
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium text-indigo-600">
-                          총 {room.totalQuantity}개
+                          총 {room.categoryCount}종류
                         </span>
                         {roomExpanded ? (
                           <ChevronUp size={20} className="text-gray-400" />
@@ -307,7 +328,7 @@ const Dashboard: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                                    {shelf.itemCount}개 교구
+                                    {shelf.categoryCount}종류 교구
                                   </span>
                                   {shelfExpanded ? (
                                     <ChevronUp size={16} className="text-gray-400" />
@@ -332,12 +353,31 @@ const Dashboard: React.FC = () => {
                                           {slot.name}
                                         </span>
                                         <span className="text-xs text-indigo-600 font-semibold">
-                                          {slot.itemCount}개
+                                          {slot.categoryCount}종류
                                         </span>
                                       </div>
-                                      <p className="text-[10px] text-gray-400 truncate" title={slot.items.join(', ')}>
-                                        {slot.items.length > 0 ? slot.items.join(', ') : '-'}
-                                      </p>
+                                      {slot.items.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {slot.items.map((itemName) => {
+                                            const locationLabel = slot.name === '전체'
+                                              ? `${room.name}/${shelf.name}`
+                                              : `${room.name}/${shelf.name}-${slot.name}`;
+                                            return (
+                                              <button
+                                                key={itemName}
+                                                type="button"
+                                                onClick={() => handleLocationItemClick(itemName, locationLabel)}
+                                                className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                                                title={`${itemName} • ${locationLabel}`}
+                                              >
+                                                {itemName}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <p className="text-[10px] text-gray-400">-</p>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

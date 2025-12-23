@@ -1,6 +1,7 @@
 import { InventoryItem, ApiResponse } from '../types';
 import { MOCK_INVENTORY } from './mockData';
 import { DEFAULT_SCHOOLS, DEFAULT_SCHOOL, ALL_SCHOOLS_KEY } from '../constants';
+import { resolveAppsScriptUrl } from './appsScriptProxy';
 
 // Helper to simulate network delay for mock mode (kept minimal for faster UX)
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,7 +18,8 @@ export const apiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'uploadImage',
@@ -61,8 +63,9 @@ export const apiService = {
       return stored ? JSON.parse(stored) : MOCK_INVENTORY.map(item => ({ ...item, school }));
     }
 
+    const endpoint = resolveAppsScriptUrl(url);
     const fetchBySchool = async (sch: string) => {
-      const response = await fetch(`${url}?school=${encodeURIComponent(sch || DEFAULT_SCHOOL)}`);
+      const response = await fetch(`${endpoint}?school=${encodeURIComponent(sch || DEFAULT_SCHOOL)}`);
       const result: ApiResponse = await response.json();
       if (result.success && result.data) return result.data;
       throw new Error(result.message || '데이터를 불러오는데 실패했습니다.');
@@ -121,8 +124,9 @@ export const apiService = {
     }
 
     // Real API Call (POST request mimicking a procedure call)
+    const endpoint = resolveAppsScriptUrl(url);
     const payload = { action: 'create', data: pruneImagePayload(newItem) };
-    const response = await fetch(url, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -146,8 +150,9 @@ export const apiService = {
       return updatedItem;
     }
 
+    const endpoint = resolveAppsScriptUrl(url);
     const payload = { action: 'update', data: pruneImagePayload(updatedItem) };
-    const response = await fetch(url, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -170,7 +175,8 @@ export const apiService = {
       return true;
     }
 
-    const response = await fetch(url, {
+    const endpoint = resolveAppsScriptUrl(url);
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify({ action: 'delete', id, school: targetSchool }),
     });

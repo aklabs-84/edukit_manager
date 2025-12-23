@@ -1,4 +1,5 @@
 import { SchoolConfig, SchoolApiResponse, AdminLoginResponse } from '../types';
+import { resolveAppsScriptUrl } from './appsScriptProxy';
 import { DEFAULT_SCHOOLS } from '../constants';
 
 // 데모 모드용 기본 학교 데이터
@@ -93,7 +94,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(`${url}?action=getSchools`);
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(`${endpoint}?action=getSchools`);
       const result: SchoolApiResponse = await response.json();
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
@@ -115,7 +117,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(`${url}?action=verifyCode&code=${encodeURIComponent(code)}`);
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(`${endpoint}?action=verifyCode&code=${encodeURIComponent(code)}`);
       const result: SchoolApiResponse = await response.json();
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
@@ -136,7 +139,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'adminLogin',
@@ -177,7 +181,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'addSchool',
@@ -230,7 +235,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'updateSchool',
@@ -268,7 +274,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'deleteSchool',
@@ -298,7 +305,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'updateCategories',
@@ -329,7 +337,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'updateLocations',
@@ -354,7 +363,8 @@ export const adminApiService = {
     }
 
     try {
-      const response = await fetch(url, {
+      const endpoint = resolveAppsScriptUrl(url);
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           action: 'changePassword',
