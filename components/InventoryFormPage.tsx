@@ -19,7 +19,6 @@ const InventoryFormPage: React.FC = () => {
   const { addItem, updateItem, isDemoMode, selectedSchool, gasUrl } = useAppContext();
   const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
-  const isAdminDemoMode = !adminGasUrl;
   const schoolCode = currentSchool?.code || '';
 
   // 단계별 위치 선택 상태
@@ -82,7 +81,7 @@ const InventoryFormPage: React.FC = () => {
 
     const loadCategories = async () => {
       try {
-        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isAdminDemoMode);
+        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isDemoMode);
         if (!isActive) return;
         if (result.success && result.data) {
           const school = result.data as { categories?: string[] };
@@ -100,7 +99,7 @@ const InventoryFormPage: React.FC = () => {
     return () => {
       isActive = false;
     };
-  }, [adminGasUrl, isAdminDemoMode, schoolCode]);
+  }, [adminGasUrl, isDemoMode, schoolCode]);
 
   const applyLocationSelection = useCallback((locationValue: string) => {
     if (!locationValue) {
@@ -402,6 +401,11 @@ const InventoryFormPage: React.FC = () => {
         </button>
         <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? '교구 수정' : '새 교구 추가'}</h1>
       </div>
+      {isDemoMode && (
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">
+          데모 모드: 이 화면의 변경 사항은 저장되지 않습니다.
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 md:p-6">
         <form onSubmit={handleSubmit} className="space-y-5">

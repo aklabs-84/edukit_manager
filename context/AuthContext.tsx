@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SchoolConfig, AuthState } from '../types';
-import { AUTH_STATE_KEY, CURRENT_SCHOOL_KEY, ADMIN_URL_KEY, DEFAULT_ADMIN_GAS_URL } from '../constants';
+import { AUTH_STATE_KEY, CURRENT_SCHOOL_KEY, ADMIN_URL_KEY, DEFAULT_ADMIN_GAS_URL, DEFAULT_SCHOOLS } from '../constants';
 import { adminApiService } from '../services/adminApi';
 
 interface AuthContextType extends AuthState {
@@ -8,6 +8,7 @@ interface AuthContextType extends AuthState {
   setAdminGasUrl: (url: string) => void;
   setCurrentSchool: (school: SchoolConfig | null) => void;
   loginWithCode: (code: string) => Promise<{ success: boolean; message?: string }>;
+  loginAsDemo: () => Promise<{ success: boolean; message?: string }>;
   loginAsAdmin: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   isLoading: boolean;
@@ -96,6 +97,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [adminGasUrl, saveAuthState]);
 
+  const loginAsDemo = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+    setIsLoading(true);
+    try {
+      const demoSchool: SchoolConfig = {
+        name: DEFAULT_SCHOOLS[0],
+        code: 'DEMO001',
+        scriptUrl: '',
+        createdAt: null,
+        sheetUrl: '',
+        driveFolderUrl: '',
+        categories: [],
+        locations: [],
+      };
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setCurrentSchool(demoSchool);
+      saveAuthState(true, false, demoSchool);
+      return { success: true };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [saveAuthState]);
+
   // 관리자 로그인
   const loginAsAdmin = useCallback(async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     if (!adminGasUrl) {
@@ -159,6 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAdminGasUrl,
       setCurrentSchool: setCurrentSchoolDirect,
       loginWithCode,
+      loginAsDemo,
       loginAsAdmin,
       logout,
       isLoading,

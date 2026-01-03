@@ -2,19 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Shield, Loader2, AlertCircle, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 
 const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
-  const { loginAsAdmin, adminGasUrl, isLoading } = useAuth();
+  const { loginAsAdmin, isLoading } = useAuth();
+  const { isDemoMode, toggleDemoMode } = useAppContext();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const isDemoMode = !adminGasUrl;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -25,6 +24,7 @@ const AdminLogin: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    toggleDemoMode(false);
     try {
       const result = await loginAsAdmin(username.trim(), password);
       if (result.success) {

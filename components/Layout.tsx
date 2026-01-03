@@ -18,6 +18,7 @@ import {
   Tags,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const { currentSchool, logout, isAdmin } = useAuth();
+  const { toggleDemoMode } = useAppContext();
   const adminTarget = isAdmin ? '/admin' : '/admin/login';
 
   const navItems = [
@@ -40,6 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   ];
 
   const handleLogout = () => {
+    toggleDemoMode(false);
     logout();
     navigate('/');
   };

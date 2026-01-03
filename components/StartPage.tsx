@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, KeyRound, Shield, Loader2, AlertCircle, Settings } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 
 const StartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { loginWithCode, adminGasUrl, setAdminGasUrl, isLoading, isAdmin } = useAuth();
+  const { loginWithCode, loginAsDemo, adminGasUrl, setAdminGasUrl, isLoading, isAdmin } = useAuth();
+  const { isDemoMode, toggleDemoMode } = useAppContext();
 
   const [schoolCode, setSchoolCode] = useState('');
   const [error, setError] = useState('');
@@ -13,11 +15,10 @@ const StartPage: React.FC = () => {
   const [showUrlSetting, setShowUrlSetting] = useState(false);
   const [tempUrl, setTempUrl] = useState(adminGasUrl);
 
-  const isDemoMode = !adminGasUrl;
-
   const handleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    toggleDemoMode(false);
 
     if (!schoolCode.trim()) {
       setError('학교 코드를 입력해주세요.');
@@ -45,15 +46,15 @@ const StartPage: React.FC = () => {
   };
 
   const handleDemoLogin = async () => {
-    // 데모 모드에서는 첫 번째 데모 코드로 자동 로그인
-    setSchoolCode('DEMO001');
+    setError('');
     setIsSubmitting(true);
+    toggleDemoMode(true);
     try {
-      const result = await loginWithCode('DEMO001');
+      const result = await loginAsDemo();
       if (result.success) {
         navigate('/school/dashboard');
       } else {
-        setError('데모 로그인에 실패했습니다.');
+        setError(result.message || '데모 로그인에 실패했습니다.');
       }
     } finally {
       setIsSubmitting(false);
@@ -179,15 +180,21 @@ const StartPage: React.FC = () => {
               </button>
             </form>
 
-            {isDemoMode && (
-              <button
-                onClick={handleDemoLogin}
-                disabled={isSubmitting}
-                className="w-full mt-2 px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-xl text-sm transition-colors"
-              >
-                데모로 체험하기
-              </button>
-            )}
+          </div>
+
+          {/* 데모 체험 카드 */}
+          <div className="bg-white/70 backdrop-blur rounded-2xl shadow-lg p-5 mb-4 border border-white/60">
+            <h2 className="font-semibold text-gray-900 mb-1">데모 체험</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              학교 코드 없이 가상의 데이터로 기능을 둘러볼 수 있어요.
+            </p>
+            <button
+              onClick={handleDemoLogin}
+              disabled={isSubmitting}
+              className="w-full px-4 py-3 bg-indigo-100 text-indigo-700 rounded-xl font-medium hover:bg-indigo-200 transition-colors"
+            >
+              데모 체험 시작하기
+            </button>
           </div>
 
           {/* 관리자 로그인 버튼 */}
@@ -215,8 +222,16 @@ const StartPage: React.FC = () => {
       </div>
 
       {/* 푸터 */}
-      <footer className="text-center py-4 text-sm text-gray-500">
-        &copy; 2025 아크랩스. All rights reserved.
+      <footer className="text-center py-4 text-sm text-gray-500 space-y-2">
+        <div>&copy; 2025 아크랩스. All rights reserved.</div>
+        <a
+          href="https://litt.ly/aklabs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-indigo-600 hover:text-indigo-700 underline"
+        >
+          AKLABS 홈페이지
+        </a>
       </footer>
     </div>
   );

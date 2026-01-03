@@ -2,38 +2,59 @@ import { SchoolConfig, SchoolApiResponse, AdminLoginResponse } from '../types';
 import { resolveAppsScriptUrl } from './appsScriptProxy';
 import { DEFAULT_SCHOOLS } from '../constants';
 
-// 데모 모드용 기본 학교 데이터
-const DEMO_SCHOOLS: SchoolConfig[] = DEFAULT_SCHOOLS.map((name, index) => ({
-  name,
-  code: `DEMO${String(index + 1).padStart(3, '0')}`,
-  scriptUrl: '',
-  createdAt: new Date().toISOString(),
-  sheetUrl: '',
-  driveFolderUrl: '',
-  categories: [],
-  locations: [],
-}));
+const DEMO_LOCATIONS: SchoolConfig['locations'] = [
+  {
+    id: 'demo-room-1',
+    name: '데모 실습실',
+    shelves: [
+      {
+        id: 'demo-shelf-1',
+        name: '선반 A',
+        slots: [
+          { id: 'demo-slot-1', name: '1칸' },
+          { id: 'demo-slot-2', name: '2칸' },
+        ],
+      },
+      {
+        id: 'demo-shelf-2',
+        name: '선반 B',
+        slots: [
+          { id: 'demo-slot-3', name: 'A-1' },
+          { id: 'demo-slot-4', name: 'A-2' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'demo-room-2',
+    name: '데모 창고',
+    shelves: [
+      {
+        id: 'demo-shelf-3',
+        name: '캐비닛 1',
+        slots: [
+          { id: 'demo-slot-5', name: '상단' },
+          { id: 'demo-slot-6', name: '하단' },
+        ],
+      },
+    ],
+  },
+];
 
-const DEMO_STORAGE_KEY = 'demo_school_settings';
+// 데모 모드용 기본 학교 데이터 (저장하지 않음)
+const createDemoSchools = (): SchoolConfig[] =>
+  DEFAULT_SCHOOLS.map((name, index) => ({
+    name,
+    code: `DEMO${String(index + 1).padStart(3, '0')}`,
+    scriptUrl: '',
+    createdAt: new Date().toISOString(),
+    sheetUrl: '',
+    driveFolderUrl: '',
+    categories: ['마이크로보드', '센서', '로봇'],
+    locations: DEMO_LOCATIONS,
+  }));
 
-// 데모 모드 학교 데이터 관리
-const getDemoSchools = (): SchoolConfig[] => {
-  const stored = localStorage.getItem(DEMO_STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return DEMO_SCHOOLS;
-    }
-  }
-  // 초기 데모 데이터 저장
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(DEMO_SCHOOLS));
-  return DEMO_SCHOOLS;
-};
-
-const saveDemoSchools = (schools: SchoolConfig[]) => {
-  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(schools));
-};
+const getDemoSchools = (): SchoolConfig[] => createDemoSchools();
 
 const normalizeCategories = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -85,6 +106,22 @@ const normalizeSchoolResponse = (data?: SchoolConfig | SchoolConfig[]): SchoolCo
   return normalizeSchool(data);
 };
 
+const parseJsonResponse = async <T>(response: Response): Promise<T> => {
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error('서버 응답이 비어 있습니다.');
+  }
+  if (trimmed.startsWith('<')) {
+    throw new Error('관리자 API URL이 올바르지 않거나 접근 권한이 없습니다.');
+  }
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    throw new Error('서버 응답이 JSON 형식이 아닙니다.');
+  }
+};
+
 export const adminApiService = {
   // 모든 학교 목록 조회
   getSchools: async (url: string, isDemo: boolean = false): Promise<SchoolApiResponse> => {
@@ -96,7 +133,7 @@ export const adminApiService = {
     try {
       const endpoint = resolveAppsScriptUrl(url);
       const response = await fetch(`${endpoint}?action=getSchools`);
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('학교 목록 조회 실패:', error);
@@ -119,7 +156,7 @@ export const adminApiService = {
     try {
       const endpoint = resolveAppsScriptUrl(url);
       const response = await fetch(`${endpoint}?action=verifyCode&code=${encodeURIComponent(code)}`);
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('학교 코드 확인 실패:', error);
@@ -148,7 +185,7 @@ export const adminApiService = {
           password,
         }),
       });
-      const result: AdminLoginResponse = await response.json();
+      const result = await parseJsonResponse<AdminLoginResponse>(response);
       return result;
     } catch (error) {
       console.error('관리자 로그인 실패:', error);
@@ -160,24 +197,7 @@ export const adminApiService = {
   addSchool: async (url: string, school: Omit<SchoolConfig, 'createdAt'>, isDemo: boolean = false): Promise<SchoolApiResponse> => {
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const schools = getDemoSchools();
-
-      // 중복 체크
-      if (schools.some(s => s.code === school.code)) {
-        return { success: false, message: '이미 존재하는 학교 코드입니다.' };
-      }
-      if (schools.some(s => s.name === school.name)) {
-        return { success: false, message: '이미 존재하는 학교 이름입니다.' };
-      }
-
-      const newSchool: SchoolConfig = normalizeSchool({
-        ...school,
-        createdAt: new Date().toISOString(),
-      });
-      schools.push(newSchool);
-      saveDemoSchools(schools);
-
-      return { success: true, data: newSchool, message: '학교가 추가되었습니다.' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -195,7 +215,7 @@ export const adminApiService = {
           locations: school.locations,
         }),
       });
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return result;
     } catch (error) {
       console.error('학교 추가 실패:', error);
@@ -207,31 +227,7 @@ export const adminApiService = {
   updateSchool: async (url: string, originalCode: string, school: Omit<SchoolConfig, 'createdAt'>, isDemo: boolean = false): Promise<SchoolApiResponse> => {
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const schools = getDemoSchools();
-      const index = schools.findIndex(s => s.code === originalCode);
-
-      if (index === -1) {
-        return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
-      }
-
-      // 새 코드가 다른 학교와 중복되는지 체크
-      if (school.code !== originalCode && schools.some(s => s.code === school.code)) {
-        return { success: false, message: '이미 존재하는 학교 코드입니다.' };
-      }
-
-      schools[index] = normalizeSchool({
-        ...schools[index],
-        name: school.name,
-        code: school.code,
-        scriptUrl: school.scriptUrl,
-        sheetUrl: school.sheetUrl,
-        driveFolderUrl: school.driveFolderUrl,
-        categories: school.categories ?? schools[index].categories,
-        locations: school.locations ?? schools[index].locations,
-      });
-      saveDemoSchools(schools);
-
-      return { success: true, data: schools[index], message: '학교 정보가 수정되었습니다.' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -250,7 +246,7 @@ export const adminApiService = {
           locations: school.locations,
         }),
       });
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return result;
     } catch (error) {
       console.error('학교 수정 실패:', error);
@@ -262,15 +258,7 @@ export const adminApiService = {
   deleteSchool: async (url: string, code: string, isDemo: boolean = false): Promise<SchoolApiResponse> => {
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const schools = getDemoSchools();
-      const filtered = schools.filter(s => s.code !== code);
-
-      if (filtered.length === schools.length) {
-        return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
-      }
-
-      saveDemoSchools(filtered);
-      return { success: true, message: '학교가 삭제되었습니다.' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -282,7 +270,7 @@ export const adminApiService = {
           code,
         }),
       });
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return result;
     } catch (error) {
       console.error('학교 삭제 실패:', error);
@@ -294,14 +282,7 @@ export const adminApiService = {
     const normalized = normalizeCategories(categories);
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const schools = getDemoSchools();
-      const index = schools.findIndex(s => s.code === code);
-      if (index === -1) {
-        return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
-      }
-      schools[index] = normalizeSchool({ ...schools[index], categories: normalized });
-      saveDemoSchools(schools);
-      return { success: true, data: schools[index], message: '카테고리가 저장되었습니다.' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -314,7 +295,7 @@ export const adminApiService = {
           categories: normalized,
         }),
       });
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('카테고리 업데이트 실패:', error);
@@ -326,14 +307,7 @@ export const adminApiService = {
     const normalized = normalizeLocations(locations);
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      const schools = getDemoSchools();
-      const index = schools.findIndex(s => s.code === code);
-      if (index === -1) {
-        return { success: false, message: '해당 학교를 찾을 수 없습니다.' };
-      }
-      schools[index] = normalizeSchool({ ...schools[index], locations: normalized });
-      saveDemoSchools(schools);
-      return { success: true, data: schools[index], message: '위치가 저장되었습니다.' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -346,7 +320,7 @@ export const adminApiService = {
           locations: normalized,
         }),
       });
-      const result: SchoolApiResponse = await response.json();
+      const result = await parseJsonResponse<SchoolApiResponse>(response);
       return { ...result, data: normalizeSchoolResponse(result.data) };
     } catch (error) {
       console.error('위치 업데이트 실패:', error);
@@ -358,8 +332,7 @@ export const adminApiService = {
   changePassword: async (url: string, username: string, oldPassword: string, newPassword: string, isDemo: boolean = false): Promise<AdminLoginResponse> => {
     if (isDemo || !url) {
       await new Promise(resolve => setTimeout(resolve, 100));
-      // 데모 모드에서는 비밀번호 변경 시뮬레이션
-      return { success: true, message: '비밀번호가 변경되었습니다. (데모 모드)' };
+      return { success: false, message: '데모 모드에서는 저장되지 않습니다.' };
     }
 
     try {
@@ -373,7 +346,7 @@ export const adminApiService = {
           newPassword,
         }),
       });
-      const result: AdminLoginResponse = await response.json();
+      const result = await parseJsonResponse<AdminLoginResponse>(response);
       return result;
     } catch (error) {
       console.error('비밀번호 변경 실패:', error);

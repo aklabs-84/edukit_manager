@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Tags, AlertCircle, Loader2 } from 'lucide-react';
 import { CATEGORY_OPTIONS } from '../constants';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 import { adminApiService } from '../services/adminApi';
 import { SchoolConfig } from '../types';
 
 const CategoryManager: React.FC = () => {
   const { currentSchool, adminGasUrl, setCurrentSchool } = useAuth();
-  const isDemoMode = !adminGasUrl;
+  const { isDemoMode } = useAppContext();
   const schoolCode = currentSchool?.code || '';
 
   const [customCategories, setCustomCategories] = useState<string[]>([]);
@@ -55,6 +56,10 @@ const CategoryManager: React.FC = () => {
   }, [adminGasUrl, isDemoMode, schoolCode]);
 
   const handleAddCategory = async () => {
+    if (isDemoMode) {
+      setErrorMessage('데모 모드에서는 저장되지 않습니다.');
+      return;
+    }
     const nextValue = newCategoryName.trim();
     if (!nextValue) return;
     const normalized = nextValue.toLowerCase();
@@ -85,6 +90,10 @@ const CategoryManager: React.FC = () => {
   };
 
   const handleRemoveCategory = async (category: string) => {
+    if (isDemoMode) {
+      setErrorMessage('데모 모드에서는 저장되지 않습니다.');
+      return;
+    }
     const updated = customCategories.filter((item) => item !== category);
     setCustomCategories(updated);
     setErrorMessage('');
@@ -110,6 +119,11 @@ const CategoryManager: React.FC = () => {
         <p className="text-gray-500 text-sm mt-1">
           기본 카테고리는 모든 학교에 공통이며, 아래에서 추가한 카테고리는 현재 학교에만 적용됩니다.
         </p>
+        {isDemoMode && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">
+            데모 모드: 변경 사항이 저장되지 않습니다.
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
@@ -159,8 +173,9 @@ const CategoryManager: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleRemoveCategory(category)}
-                  className="text-indigo-500 hover:text-indigo-700"
+                  className="text-indigo-500 hover:text-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label="카테고리 삭제"
+                  disabled={isDemoMode}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -182,11 +197,12 @@ const CategoryManager: React.FC = () => {
             }}
             placeholder="카테고리 직접 추가"
             className="flex-1 min-w-[180px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+            disabled={isDemoMode}
           />
           <button
             type="button"
             onClick={handleAddCategory}
-            disabled={!schoolCode}
+            disabled={isDemoMode || !schoolCode}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
           >
             <Plus size={16} />

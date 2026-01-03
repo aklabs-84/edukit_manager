@@ -7,7 +7,23 @@ import { resolveAppsScriptUrl } from './appsScriptProxy';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_IMAGE_BASE64_SIZE = 7_000_000; // ~5MB binary payload in base64
 
-const demoKey = (school: string) => `demo_items_${school}`;
+const buildDemoItemsForSchool = (school: string): InventoryItem[] =>
+  MOCK_INVENTORY.map(item => ({ ...item, id: `${school}-${item.id}`, school }));
+
+const getDemoItems = (school: string): InventoryItem[] => {
+  if (school === ALL_SCHOOLS_KEY) {
+    const combined = DEFAULT_SCHOOLS.flatMap(name =>
+      buildDemoItemsForSchool(name)
+    );
+    return combined.length > 0 ? combined : MOCK_INVENTORY.map(item => ({ ...item }));
+  }
+
+  const filtered = MOCK_INVENTORY.filter(item => item.school === school);
+  if (filtered.length > 0) {
+    return filtered.map(item => ({ ...item, id: `${school}-${item.id}` }));
+  }
+  return buildDemoItemsForSchool(school);
+};
 
 export const apiService = {
   // 이미지를 Google Drive에 업로드
@@ -42,25 +58,7 @@ export const apiService = {
     if (isDemo || !url) {
       await delay(80); // 150 → 80ms로 단축
 
-      if (school === ALL_SCHOOLS_KEY) {
-        // 개선: 직접 학교 키로 접근 (전체 localStorage 순회 제거)
-        const items: InventoryItem[] = [];
-        for (const sch of DEFAULT_SCHOOLS) {
-          const data = localStorage.getItem(demoKey(sch));
-          if (data) {
-            try {
-              items.push(...JSON.parse(data));
-            } catch {
-              // 파싱 실패 시 무시
-            }
-          }
-        }
-        if (items.length > 0) return items;
-        return MOCK_INVENTORY.map(item => ({ ...item }));
-      }
-
-      const stored = localStorage.getItem(demoKey(school));
-      return stored ? JSON.parse(stored) : MOCK_INVENTORY.map(item => ({ ...item, school }));
+      return getDemoItems(school);
     }
 
     const endpoint = resolveAppsScriptUrl(url);
@@ -115,11 +113,6 @@ export const apiService = {
     if (isDemo || !url) {
       await delay(50); // 120 → 50ms로 단축
 
-      // 개선: 직접 localStorage에서 읽고 추가 (fetchItems 호출 제거)
-      const stored = localStorage.getItem(demoKey(targetSchool));
-      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
-      const updated = [newItem, ...currentItems];
-      localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return newItem;
     }
 
@@ -142,11 +135,6 @@ export const apiService = {
     if (isDemo || !url) {
       await delay(50); // 120 → 50ms로 단축
 
-      // 개선: 직접 localStorage에서 읽고 수정 (fetchItems 호출 제거)
-      const stored = localStorage.getItem(demoKey(targetSchool));
-      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
-      const updated = currentItems.map(i => i.id === item.id ? updatedItem : i);
-      localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return updatedItem;
     }
 
@@ -167,11 +155,6 @@ export const apiService = {
     if (isDemo || !url) {
       await delay(50); // 120 → 50ms로 단축
 
-      // 개선: 직접 localStorage에서 읽고 삭제 (fetchItems 호출 제거)
-      const stored = localStorage.getItem(demoKey(targetSchool));
-      const currentItems: InventoryItem[] = stored ? JSON.parse(stored) : [];
-      const updated = currentItems.filter(i => i.id !== id);
-      localStorage.setItem(demoKey(targetSchool), JSON.stringify(updated));
       return true;
     }
 

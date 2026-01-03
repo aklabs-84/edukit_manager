@@ -14,6 +14,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { useLocation } from '../context/LocationContext';
+import { useAppContext } from '../context/AppContext';
 
 const LocationManager: React.FC = () => {
   const {
@@ -30,6 +31,7 @@ const LocationManager: React.FC = () => {
     updateSlot,
     deleteSlot,
   } = useLocation();
+  const { isDemoMode } = useAppContext();
 
   const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
   const [expandedShelves, setExpandedShelves] = useState<Record<string, boolean>>({});
@@ -78,12 +80,14 @@ const LocationManager: React.FC = () => {
   };
 
   const handleAddRoom = () => {
+    if (isDemoMode) return;
     if (!newRoomName.trim()) return;
     addRoom(newRoomName.trim());
     setNewRoomName('');
   };
 
   const handleAddShelf = (roomId: string) => {
+    if (isDemoMode) return;
     const name = newShelfName[roomId]?.trim();
     if (!name) return;
     addShelf(roomId, name);
@@ -91,6 +95,7 @@ const LocationManager: React.FC = () => {
   };
 
   const handleAddSlot = (roomId: string, shelfId: string) => {
+    if (isDemoMode) return;
     const key = `${roomId}-${shelfId}`;
     const name = newSlotName[key]?.trim();
     if (!name) return;
@@ -99,6 +104,7 @@ const LocationManager: React.FC = () => {
   };
 
   const startEdit = (type: 'room' | 'shelf' | 'slot', id: string, currentName: string) => {
+    if (isDemoMode) return;
     setEditValue(currentName);
     if (type === 'room') setEditingRoom(id);
     else if (type === 'shelf') setEditingShelf(id);
@@ -113,6 +119,7 @@ const LocationManager: React.FC = () => {
   };
 
   const confirmDelete = () => {
+    if (isDemoMode) return;
     if (!deleteConfirm) return;
     const { type, roomId, shelfId, slotId } = deleteConfirm;
 
@@ -128,11 +135,13 @@ const LocationManager: React.FC = () => {
   };
 
   const openDuplicateModal = (roomId: string, roomName: string) => {
+    if (isDemoMode) return;
     setDuplicateModal({ roomId, roomName });
     setDuplicateName(`${roomName} (복사)`);
   };
 
   const confirmDuplicate = () => {
+    if (isDemoMode) return;
     if (!duplicateModal || !duplicateName.trim()) return;
     duplicateRoom(duplicateModal.roomId, duplicateName.trim());
     setDuplicateModal(null);
@@ -140,11 +149,13 @@ const LocationManager: React.FC = () => {
   };
 
   const openDuplicateShelfModal = (roomId: string, shelfId: string, shelfName: string) => {
+    if (isDemoMode) return;
     setDuplicateShelfModal({ roomId, shelfId, shelfName });
     setDuplicateShelfName(`${shelfName} (복사)`);
   };
 
   const confirmDuplicateShelf = () => {
+    if (isDemoMode) return;
     if (!duplicateShelfModal || !duplicateShelfName.trim()) return;
     duplicateShelf(duplicateShelfModal.roomId, duplicateShelfModal.shelfId, duplicateShelfName.trim());
     setDuplicateShelfModal(null);
@@ -158,6 +169,11 @@ const LocationManager: React.FC = () => {
         <p className="text-gray-500 text-sm mt-1">
           교구 보관 위치를 등록하고 관리하세요. 교실 → 선반 → 칸 순으로 계층 구조로 관리됩니다.
         </p>
+        {isDemoMode && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">
+            데모 모드: 변경 사항이 저장되지 않습니다.
+          </div>
+        )}
       </div>
 
       {/* 새 교실 추가 */}
@@ -174,10 +190,11 @@ const LocationManager: React.FC = () => {
             value={newRoomName}
             onChange={(e) => setNewRoomName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddRoom()}
+            disabled={isDemoMode}
           />
           <button
             onClick={handleAddRoom}
-            disabled={!newRoomName.trim()}
+            disabled={isDemoMode || !newRoomName.trim()}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Plus size={18} />
@@ -269,28 +286,34 @@ const LocationManager: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => openDuplicateModal(room.id, room.name)}
-                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="복제"
-                            >
+                            onClick={() => openDuplicateModal(room.id, room.name)}
+                            disabled={isDemoMode}
+                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="복제"
+                          >
                               <Copy size={16} />
                             </button>
                             <button
-                              onClick={() => startEdit('room', room.id, room.name)}
-                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="수정"
-                            >
+                            onClick={() => startEdit('room', room.id, room.name)}
+                            disabled={isDemoMode}
+                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="수정"
+                          >
                               <Edit3 size={16} />
                             </button>
                             <button
-                              onClick={() => setDeleteConfirm({
+                            onClick={() => {
+                              if (isDemoMode) return;
+                              setDeleteConfirm({
                                 type: 'room',
                                 roomId: room.id,
                                 name: room.name
-                              })}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="삭제"
-                            >
+                              });
+                            }}
+                            disabled={isDemoMode}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="삭제"
+                          >
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -304,19 +327,20 @@ const LocationManager: React.FC = () => {
                     <div className="p-4 bg-gray-50/50 space-y-3">
                       {/* 새 선반 추가 */}
                       <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="새 선반 이름 (예: 선반A, 캐비닛1)"
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                          value={newShelfName[room.id] || ''}
-                          onChange={(e) => setNewShelfName(prev => ({ ...prev, [room.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddShelf(room.id)}
-                        />
-                        <button
-                          onClick={() => handleAddShelf(room.id)}
-                          disabled={!newShelfName[room.id]?.trim()}
-                          className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-1"
-                        >
+                          <input
+                            type="text"
+                            placeholder="새 선반 이름 (예: 선반A, 캐비닛1)"
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                            value={newShelfName[room.id] || ''}
+                            onChange={(e) => setNewShelfName(prev => ({ ...prev, [room.id]: e.target.value }))}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddShelf(room.id)}
+                            disabled={isDemoMode}
+                          />
+                          <button
+                            onClick={() => handleAddShelf(room.id)}
+                            disabled={isDemoMode || !newShelfName[room.id]?.trim()}
+                            className="px-3 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-1"
+                          >
                           <Plus size={16} />
                           선반 추가
                         </button>
@@ -389,29 +413,35 @@ const LocationManager: React.FC = () => {
                                       </span>
                                     </div>
                                     <button
-                                      onClick={() => openDuplicateShelfModal(room.id, shelf.id, shelf.name)}
-                                      className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                                      title="복제"
-                                    >
+                                    onClick={() => openDuplicateShelfModal(room.id, shelf.id, shelf.name)}
+                                    disabled={isDemoMode}
+                                    className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="복제"
+                                  >
                                       <Copy size={14} />
                                     </button>
                                     <button
-                                      onClick={() => startEdit('shelf', shelf.id, shelf.name)}
-                                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                      title="수정"
-                                    >
+                                    onClick={() => startEdit('shelf', shelf.id, shelf.name)}
+                                    disabled={isDemoMode}
+                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="수정"
+                                  >
                                       <Edit3 size={14} />
                                     </button>
                                     <button
-                                      onClick={() => setDeleteConfirm({
+                                    onClick={() => {
+                                      if (isDemoMode) return;
+                                      setDeleteConfirm({
                                         type: 'shelf',
                                         roomId: room.id,
                                         shelfId: shelf.id,
                                         name: shelf.name
-                                      })}
-                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                      title="삭제"
-                                    >
+                                      });
+                                    }}
+                                    disabled={isDemoMode}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="삭제"
+                                  >
                                       <Trash2 size={14} />
                                     </button>
                                   </>
@@ -430,10 +460,11 @@ const LocationManager: React.FC = () => {
                                       value={newSlotName[shelfKey] || ''}
                                       onChange={(e) => setNewSlotName(prev => ({ ...prev, [shelfKey]: e.target.value }))}
                                       onKeyDown={(e) => e.key === 'Enter' && handleAddSlot(room.id, shelf.id)}
+                                      disabled={isDemoMode}
                                     />
                                     <button
                                       onClick={() => handleAddSlot(room.id, shelf.id)}
-                                      disabled={!newSlotName[shelfKey]?.trim()}
+                                      disabled={isDemoMode || !newSlotName[shelfKey]?.trim()}
                                       className="px-2 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs flex items-center gap-1"
                                     >
                                       <Plus size={14} />
@@ -486,19 +517,24 @@ const LocationManager: React.FC = () => {
                                               <span className="flex-1 text-xs text-gray-700">{slot.name}</span>
                                               <button
                                                 onClick={() => startEdit('slot', slot.id, slot.name)}
-                                                className="p-0.5 text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                disabled={isDemoMode}
+                                                className="p-0.5 text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                                               >
                                                 <Edit3 size={12} />
                                               </button>
                                               <button
-                                                onClick={() => setDeleteConfirm({
-                                                  type: 'slot',
-                                                  roomId: room.id,
-                                                  shelfId: shelf.id,
-                                                  slotId: slot.id,
-                                                  name: slot.name
-                                                })}
-                                                className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => {
+                                                  if (isDemoMode) return;
+                                                  setDeleteConfirm({
+                                                    type: 'slot',
+                                                    roomId: room.id,
+                                                    shelfId: shelf.id,
+                                                    slotId: slot.id,
+                                                    name: slot.name
+                                                  });
+                                                }}
+                                                disabled={isDemoMode}
+                                                className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                                               >
                                                 <Trash2 size={12} />
                                               </button>

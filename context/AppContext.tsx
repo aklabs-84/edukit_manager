@@ -32,14 +32,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return currentSchool?.scriptUrl || localStorage.getItem('gas_url') || '';
   });
 
-  const [isDemoMode, setIsDemoMode] = useState(() => {
-    // 현재 학교가 있고 scriptUrl이 있으면 데모 모드 아님
-    if (currentSchool?.scriptUrl) {
-      return false;
-    }
-    const saved = localStorage.getItem('is_demo_mode');
-    return saved === null ? true : saved === 'true';
-  });
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // 학교 사용자는 해당 학교만, 관리자는 '모두' 가능
   const [selectedSchool, setSelectedSchool] = useState(() => {
@@ -57,7 +50,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setGasUrlState(currentSchool.scriptUrl);
         // 실제 URL이 있으면 데모 모드 해제
         setIsDemoMode(false);
-        localStorage.setItem('is_demo_mode', 'false');
       }
     }
   }, [currentSchool]);
@@ -204,17 +196,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setGasUrl = (url: string) => {
     setGasUrlState(url);
-    localStorage.setItem('gas_url', url);
+    if (!isDemoMode) {
+      localStorage.setItem('gas_url', url);
+    }
   };
 
   const toggleDemoMode = (isDemo: boolean) => {
     setIsDemoMode(isDemo);
-    localStorage.setItem('is_demo_mode', String(isDemo));
   };
 
   const handleSetSelectedSchool = (school: string) => {
     setSelectedSchool(school);
-    localStorage.setItem('selected_school', school);
+    if (!isDemoMode) {
+      localStorage.setItem('selected_school', school);
+    }
   };
 
   return (

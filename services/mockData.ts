@@ -9,7 +9,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     location: '수납장 A-1',
     status: ItemStatus.IN_STOCK,
     lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-    school: '대건고',
+    school: '데모 학교 A',
     notes: '기본 키트 포함',
     imageUrl: '',
   },
@@ -21,7 +21,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     location: '수납장 B-2',
     status: ItemStatus.LOW_STOCK,
     lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    school: '대건고',
+    school: '데모 학교 A',
     notes: '',
   },
   {
@@ -32,7 +32,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     location: '수납장 B-3',
     status: ItemStatus.OUT_OF_STOCK,
     lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString(),
-    school: '신송고',
+    school: '데모 학교 B',
     notes: '다음주 입고 예정',
   },
   {
@@ -43,7 +43,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     location: '수납장 A-2',
     status: ItemStatus.LOW_STOCK,
     lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    school: '중산중',
+    school: '데모 학교 B',
     notes: '',
   },
   {
@@ -54,7 +54,7 @@ export const MOCK_INVENTORY: InventoryItem[] = [
     location: '보관함 5',
     status: ItemStatus.IN_STOCK,
     lastUpdated: new Date().toISOString(),
-    school: '이음초',
+    school: '데모 학교 C',
     notes: '',
   },
 ];

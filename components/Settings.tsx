@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { Save, Database, ShieldAlert, Check } from 'lucide-react';
 
 const Settings: React.FC = () => {
-  const { gasUrl, setGasUrl, isDemoMode, toggleDemoMode } = useAppContext();
+  const { gasUrl, setGasUrl, isDemoMode } = useAppContext();
   const [urlInput, setUrlInput] = useState(gasUrl);
   const [showSaved, setShowSaved] = useState(false);
 
@@ -36,12 +36,12 @@ const Settings: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => toggleDemoMode(!isDemoMode)}
+          <div
             className={`
-              relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
+              relative inline-flex h-6 w-11 flex-shrink-0 cursor-not-allowed rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out
               ${!isDemoMode ? 'bg-indigo-600' : 'bg-gray-200'}
             `}
+            aria-label="데모 모드 토글은 데모 체험 버튼으로만 가능합니다."
           >
             <span
               className={`
@@ -49,11 +49,11 @@ const Settings: React.FC = () => {
                 ${!isDemoMode ? 'translate-x-5' : 'translate-x-0'}
               `}
             />
-          </button>
+          </div>
         </div>
         <div className="mt-4 flex items-center gap-2 text-xs text-gray-400 bg-gray-50 p-3 rounded-md">
           <ShieldAlert size={14} />
-          <span>실제 데이터를 사용하려면 데모 모드를 끄고 아래에 API URL을 입력하세요.</span>
+          <span>데모 모드는 시작 화면의 "데모 체험 시작하기"로만 활성화됩니다.</span>
         </div>
       </div>
 

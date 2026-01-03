@@ -21,12 +21,14 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 import { adminApiService } from '../services/adminApi';
 import { SchoolConfig } from '../types';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { logout, adminGasUrl, isAdmin, setAdminGasUrl, setCurrentSchool } = useAuth();
+  const { isDemoMode, toggleDemoMode } = useAppContext();
 
   const [schools, setSchools] = useState<SchoolConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,8 +58,6 @@ const AdminDashboard: React.FC = () => {
   // URL 표시 상태
   const [showUrls, setShowUrls] = useState(false);
 
-  const isDemoMode = !adminGasUrl;
-
   // 학교 목록 로드
   const loadSchools = async () => {
     setIsLoading(true);
@@ -69,8 +69,8 @@ const AdminDashboard: React.FC = () => {
       } else {
         setError(result.message || '학교 목록을 불러오는데 실패했습니다.');
       }
-    } catch {
-      setError('학교 목록을 불러오는데 실패했습니다.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '학교 목록을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +87,7 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     loadSchools();
-  }, [isAdmin, navigate, adminGasUrl]);
+  }, [isAdmin, navigate, adminGasUrl, isDemoMode]);
 
   // 코드 복사
   const handleCopyCode = async (code: string) => {
@@ -174,6 +174,7 @@ const AdminDashboard: React.FC = () => {
 
   // 로그아웃
   const handleLogout = () => {
+    toggleDemoMode(false);
     logout();
     navigate('/');
   };

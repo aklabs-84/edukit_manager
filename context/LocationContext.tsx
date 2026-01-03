@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { LocationData, LocationRoom, LocationShelf, LocationSlot, SchoolConfig } from '../types';
 import { useAuth } from './AuthContext';
+import { useAppContext } from './AppContext';
 import { adminApiService } from '../services/adminApi';
 
 interface LocationContextType {
@@ -27,8 +28,8 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentSchool, adminGasUrl, setCurrentSchool } = useAuth();
+  const { isDemoMode } = useAppContext();
   const schoolCode = currentSchool?.code || '';
-  const isDemoMode = !adminGasUrl;
 
   const [locationData, setLocationData] = useState<LocationData>(() => ({
     rooms: currentSchool?.locations ?? [],

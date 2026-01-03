@@ -47,7 +47,6 @@ const Inventory: React.FC = () => {
   const { items, isLoading, isInitialized, addItem, updateItem, deleteItem, isDemoMode, selectedSchool, refreshItems, gasUrl } = useAppContext();
   const { currentSchool, adminGasUrl } = useAuth();
   const { locationData } = useLocation();
-  const isAdminDemoMode = !adminGasUrl;
   const schoolCode = currentSchool?.code || '';
 
   // 단계별 위치 선택 상태
@@ -155,7 +154,7 @@ const Inventory: React.FC = () => {
 
     const loadCategories = async () => {
       try {
-        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isAdminDemoMode);
+        const result = await adminApiService.verifySchoolCode(adminGasUrl, schoolCode, isDemoMode);
         if (!isActive) return;
         if (result.success && result.data) {
           const school = result.data as { categories?: string[] };
@@ -173,7 +172,7 @@ const Inventory: React.FC = () => {
     return () => {
       isActive = false;
     };
-  }, [adminGasUrl, isAdminDemoMode, schoolCode]);
+  }, [adminGasUrl, isDemoMode, schoolCode]);
 
 
   const currentLocation = useMemo(() => {
@@ -378,6 +377,11 @@ const Inventory: React.FC = () => {
           교구 추가
         </button>
       </div>
+      {isDemoMode && (
+        <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-800">
+          데모 모드: 추가/수정/삭제는 저장되지 않습니다.
+        </div>
+      )}
 
       {/* School Info - 학교 사용자에게는 현재 학교 정보만 표시 */}
       {currentSchool && (

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 import { adminApiService } from '../services/adminApi';
 import { SchoolConfig } from '../types';
 
@@ -9,7 +10,7 @@ const AdminSchoolEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { code } = useParams<{ code: string }>();
   const { adminGasUrl } = useAuth();
-  const isDemoMode = !adminGasUrl;
+  const { isDemoMode } = useAppContext();
 
   const [formName, setFormName] = useState('');
   const [formCode, setFormCode] = useState('');
